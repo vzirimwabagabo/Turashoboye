@@ -18,6 +18,11 @@ import DashboardPage from './pages/DashboardPage';
 import ProductsPage from './pages/products/ProductsPage';
 import InventoryPage from './pages/inventory/InventoryPage';
 import LotsPage from './pages/inventory/LotsPage';
+import SuppliersPage from './pages/procurement/SuppliersPage';
+import PurchaseOrdersPage from './pages/procurement/PurchaseOrdersPage';
+import BatchesPage from './pages/production/BatchesPage';
+import FormulasPage from './pages/production/FormulasPage';
+import TraceabilityPage from './pages/production/TraceabilityPage';
 import NotFoundPage from './pages/NotFoundPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -53,6 +58,11 @@ function App() {
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/inventory" element={<InventoryPage />} />
             <Route path="/inventory/lots" element={<LotsPage />} />
+            <Route path="/procurement/orders" element={<PurchaseOrdersPage />} />
+            <Route path="/procurement/suppliers" element={<SuppliersPage />} />
+            <Route path="/production" element={<BatchesPage />} />
+            <Route path="/production/formulas" element={<FormulasPage />} />
+            <Route path="/production/traceability" element={<TraceabilityPage />} />
           </Route>
 
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
