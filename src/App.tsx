@@ -3,7 +3,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import AppLayout from './components/layout/AppLayout';
 import PublicLayout from './components/public/PublicLayout';
 
-// Public pages
+// Public customer-facing pages
 import HomePage from './pages/public/HomePage';
 import CataloguePage from './pages/public/CataloguePage';
 import ProductDetailPage from './pages/public/ProductDetailPage';
@@ -12,9 +12,12 @@ import ContactPage from './pages/public/ContactPage';
 import PrivacyPage from './pages/public/PrivacyPage';
 import TermsPage from './pages/public/TermsPage';
 
-// Authenticated & system pages
+// Authenticated staff & management pages
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
+import ProductsPage from './pages/products/ProductsPage';
+import InventoryPage from './pages/inventory/InventoryPage';
+import LotsPage from './pages/inventory/LotsPage';
 import NotFoundPage from './pages/NotFoundPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -47,6 +50,9 @@ function App() {
             }
           >
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/products" element={<ProductsPage />} />
+            <Route path="/inventory" element={<InventoryPage />} />
+            <Route path="/inventory/lots" element={<LotsPage />} />
           </Route>
 
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
