@@ -7,8 +7,15 @@
  */
 import { createClient } from "@supabase/supabase-js";
 
-const rawUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const rawAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+const rawUrl =
+  (import.meta.env.VITE_SUPABASE_URL as string | undefined) ||
+  (import.meta.env.NEXT_PUBLIC_SUPABASE_URL as string | undefined);
+
+const rawAnonKey =
+  (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ||
+  (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined) ||
+  (import.meta.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY as string | undefined) ||
+  (import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string | undefined);
 
 const isValidHttpUrl = (str?: string): boolean => {
   if (!str) return false;
