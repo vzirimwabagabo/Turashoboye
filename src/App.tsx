@@ -23,6 +23,10 @@ import PurchaseOrdersPage from './pages/procurement/PurchaseOrdersPage';
 import BatchesPage from './pages/production/BatchesPage';
 import FormulasPage from './pages/production/FormulasPage';
 import TraceabilityPage from './pages/production/TraceabilityPage';
+import OrdersPage from './pages/sales/OrdersPage';
+import CustomersPage from './pages/sales/CustomersPage';
+import CompliancePage from './pages/compliance/CompliancePage';
+import ReportsPage from './pages/reports/ReportsPage';
 import NotFoundPage from './pages/NotFoundPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -63,6 +67,10 @@ function App() {
             <Route path="/production" element={<BatchesPage />} />
             <Route path="/production/formulas" element={<FormulasPage />} />
             <Route path="/production/traceability" element={<TraceabilityPage />} />
+            <Route path="/sales" element={<OrdersPage />} />
+            <Route path="/customers" element={<CustomersPage />} />
+            <Route path="/compliance" element={<CompliancePage />} />
+            <Route path="/reports" element={<ReportsPage />} />
           </Route>
 
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
