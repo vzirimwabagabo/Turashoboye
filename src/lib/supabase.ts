@@ -27,19 +27,17 @@ const isValidHttpUrl = (str?: string): boolean => {
   }
 };
 
+const DEFAULT_SUPABASE_URL = "https://snmxdfsijmgukhwtuict.supabase.co";
+const DEFAULT_SUPABASE_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNubXhkZnNpam1ndWtod3R1aWN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyMzcwMjAsImV4cCI6MjEwNzgxMzAyMH0.klP-OynJ0N_s8jvxU9kLiT4eVQlBOFKiFCmbC4SgiDQ";
+
 const supabaseUrl = isValidHttpUrl(rawUrl)
   ? (rawUrl as string)
-  : "https://turashoboye-placeholder.supabase.co";
+  : DEFAULT_SUPABASE_URL;
 
 const supabaseAnonKey =
-  rawAnonKey && rawAnonKey.trim().length > 0 && !rawAnonKey.includes("YOUR_")
+  rawAnonKey && rawAnonKey.trim().length > 0 && !rawAnonKey.includes("YOUR_") && !rawAnonKey.includes("placeholder")
     ? rawAnonKey
-    : "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder.anon.key";
-
-if (import.meta.env.DEV && (!rawUrl || !isValidHttpUrl(rawUrl))) {
-  console.info(
-    "ℹ️ [Turashoboye Feeds] Operating with local mock Supabase endpoint. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file to connect live database."
-  );
-}
+    : DEFAULT_SUPABASE_ANON_KEY;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);

@@ -8,7 +8,7 @@
  * 3. Never exposes Cloudinary API Secret in browser client code.
  */
 
-const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'turashoboye-demo';
+const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'turashoboye';
 const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'turashoboye_products';
 
 export interface UploadResult {
