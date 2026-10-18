@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import {
   Package,
   AlertTriangle,
@@ -17,6 +17,11 @@ import { useAuth } from '../hooks/useAuth';
 export default function DashboardPage() {
   const { user } = useAuth();
   const profile = user?.profile;
+
+  // Customers should never see staff operations dashboard
+  if (profile?.role === 'public') {
+    return <Navigate to="/portal" replace />;
+  }
 
   const firstName =
     profile?.displayName?.split(' ')[0] ??

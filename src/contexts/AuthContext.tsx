@@ -12,6 +12,12 @@ import type { Profile } from "../types/database";
 import { AuthContext, type AuthContextProps } from "./authContextDef";
 
 const DEMO_PERSONAS: Record<string, { role: Profile['role']; displayName: string; phone?: string; id: string }> = {
+  'superadmin@turashoboye.rw': {
+    id: 'u-super-001',
+    role: 'super_admin' as Profile['role'],
+    displayName: 'Global Super Administrator',
+    phone: '+250 788 000 000',
+  },
   'owner@turashoboye.rw': {
     id: 'u-owner-001',
     role: 'owner',

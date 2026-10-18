@@ -49,7 +49,9 @@ export default function LoginForm() {
       setSubmitting(false);
       if (res.success) {
         const clean = email.toLowerCase();
-        if (clean.includes('farmer') || clean.includes('customer')) {
+        if (clean.includes('superadmin')) {
+          navigate('/admin');
+        } else if (clean.includes('farmer') || clean.includes('customer')) {
           navigate('/portal');
         } else {
           navigate('/dashboard');
@@ -72,27 +74,34 @@ export default function LoginForm() {
         <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">
           Select Test Persona:
         </span>
-        <div className="grid grid-cols-3 gap-1.5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+          <button
+            type="button"
+            onClick={() => selectPersona('superadmin@turashoboye.rw')}
+            className="px-2 py-1.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-800 text-[11px] font-bold transition text-center"
+          >
+            🛡️ Super Admin
+          </button>
           <button
             type="button"
             onClick={() => selectPersona('owner@turashoboye.rw')}
             className="px-2 py-1.5 rounded-lg border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-800 text-[11px] font-bold transition text-center"
           >
-            Admin / Owner
+            🏢 Business Owner
           </button>
           <button
             type="button"
             onClick={() => selectPersona('manager@turashoboye.rw')}
             className="px-2 py-1.5 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-800 text-[11px] font-bold transition text-center"
           >
-            Depot Manager
+            📦 Depot Manager
           </button>
           <button
             type="button"
             onClick={() => selectPersona('farmer@turashoboye.rw')}
             className="px-2 py-1.5 rounded-lg border border-green-200 bg-green-50 hover:bg-green-100 text-[#2E7D32] text-[11px] font-bold transition text-center"
           >
-            Customer (Farmer)
+            🌾 Farmer / Customer
           </button>
         </div>
       </div>

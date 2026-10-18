@@ -20,6 +20,7 @@ import {
   Settings,
   TrendingUp,
   UserCheck,
+  ShieldAlert,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { UserRole } from "../../types/database";
@@ -30,21 +31,22 @@ interface SidebarProps {
 }
 
 const navItems = [
-  { to: "/dashboard", label: "Dashboard", icon: Home, roles: [UserRole.PUBLIC, UserRole.SALES_STAFF, UserRole.INVENTORY, UserRole.MANAGER, UserRole.OWNER] },
-  { to: "/trends", label: "Trends & Command", icon: TrendingUp, roles: [UserRole.MANAGER, UserRole.OWNER] },
-  { to: "/products", label: "Products & SKUs", icon: Box, roles: [UserRole.MANAGER, UserRole.OWNER] },
-  { to: "/inventory", label: "Stock Ledger", icon: Truck, roles: [UserRole.INVENTORY, UserRole.MANAGER, UserRole.OWNER] },
-  { to: "/procurement/orders", label: "Purchase Orders", icon: ClipboardList, roles: [UserRole.INVENTORY, UserRole.MANAGER, UserRole.OWNER] },
-  { to: "/procurement/suppliers", label: "Suppliers", icon: Building2, roles: [UserRole.INVENTORY, UserRole.MANAGER, UserRole.OWNER] },
-  { to: "/production", label: "Production Runs", icon: Factory, roles: [UserRole.MANAGER, UserRole.OWNER] },
-  { to: "/production/formulas", label: "Feed Formulations", icon: Beaker, roles: [UserRole.MANAGER, UserRole.OWNER] },
-  { to: "/production/traceability", label: "Batch Traceability", icon: Compass, roles: [UserRole.MANAGER, UserRole.OWNER] },
-  { to: "/sales", label: "Sales & Orders", icon: ShoppingCart, roles: [UserRole.SALES_STAFF, UserRole.MANAGER, UserRole.OWNER] },
-  { to: "/customers", label: "Customers", icon: Users, roles: [UserRole.SALES_STAFF, UserRole.MANAGER, UserRole.OWNER] },
-  { to: "/compliance", label: "Compliance & RSB", icon: Shield, roles: [UserRole.MANAGER, UserRole.OWNER] },
-  { to: "/reports", label: "Reports", icon: BarChart2, roles: [UserRole.MANAGER, UserRole.OWNER] },
-  { to: "/users", label: "User Control", icon: UserCheck, roles: [UserRole.OWNER] },
-  { to: "/settings", label: "Settings", icon: Settings, roles: [UserRole.OWNER] },
+  { to: "/admin", label: "Super Admin", icon: ShieldAlert, roles: [UserRole.SUPER_ADMIN] },
+  { to: "/dashboard", label: "Operations Dashboard", icon: Home, roles: [UserRole.SALES_STAFF, UserRole.INVENTORY, UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
+  { to: "/trends", label: "Trends & Command", icon: TrendingUp, roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
+  { to: "/products", label: "Products & SKUs", icon: Box, roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
+  { to: "/inventory", label: "Stock Ledger", icon: Truck, roles: [UserRole.INVENTORY, UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
+  { to: "/procurement/orders", label: "Purchase Orders", icon: ClipboardList, roles: [UserRole.INVENTORY, UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
+  { to: "/procurement/suppliers", label: "Suppliers", icon: Building2, roles: [UserRole.INVENTORY, UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
+  { to: "/production", label: "Production Runs", icon: Factory, roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
+  { to: "/production/formulas", label: "Feed Formulations", icon: Beaker, roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
+  { to: "/production/traceability", label: "Batch Traceability", icon: Compass, roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
+  { to: "/sales", label: "Sales & Orders", icon: ShoppingCart, roles: [UserRole.SALES_STAFF, UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
+  { to: "/customers", label: "Customers", icon: Users, roles: [UserRole.SALES_STAFF, UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
+  { to: "/compliance", label: "Compliance & RSB", icon: Shield, roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
+  { to: "/reports", label: "Reports", icon: BarChart2, roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
+  { to: "/users", label: "User Control", icon: UserCheck, roles: [UserRole.OWNER, UserRole.SUPER_ADMIN] },
+  { to: "/settings", label: "Settings", icon: Settings, roles: [UserRole.OWNER, UserRole.SUPER_ADMIN] },
 ];
 
 export const Sidebar = ({ open, onClose }: SidebarProps) => {

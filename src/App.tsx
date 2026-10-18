@@ -31,6 +31,7 @@ import ReportsPage from './pages/reports/ReportsPage';
 import SettingsPage from './pages/settings/SettingsPage';
 import TrendsPage from './pages/admin/TrendsPage';
 import UsersPage from './pages/admin/UsersPage';
+import SuperAdminDashboardPage from './pages/admin/SuperAdminDashboardPage';
 import NotFoundPage from './pages/NotFoundPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -57,14 +58,15 @@ function App() {
           {/* Authentication */}
           <Route path="/login" element={<LoginPage />} />
 
-          {/* Authenticated Staff Management Operations */}
+          {/* Authenticated Staff & Admin Management Operations */}
           <Route
             element={
-              <ProtectedRoute allowedRoles={[UserRole.OWNER, UserRole.MANAGER, UserRole.SALES_STAFF, UserRole.INVENTORY]}>
+              <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.MANAGER, UserRole.SALES_STAFF, UserRole.INVENTORY]}>
                 <AppLayout />
               </ProtectedRoute>
             }
           >
+            <Route path="/admin" element={<SuperAdminDashboardPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/trends" element={<TrendsPage />} />
             <Route path="/products" element={<ProductsPage />} />
