@@ -126,10 +126,52 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const createAuthUser = async (rawUser: any): Promise<AuthUser> => {
-    const profile = await fetchProfile(rawUser.id);
-    const mfaEnabled = Boolean(rawUser.factors && rawUser.factors.length > 0);
+    let profile = await fetchProfile(rawUser.id);
+    const email = (rawUser.email || '').trim().toLowerCase();
+    const demo = DEMO_PERSONAS[email];
+
+    if (!profile) {
+      const derivedRole: Profile['role'] =
+        (rawUser.user_metadata?.role as Profile['role']) ||
+        demo?.role ||
+        (email.includes('superadmin')
+          ? 'super_admin'
+          : email.includes('owner')
+          ? 'owner'
+          : email.includes('manager')
+          ? 'manager'
+          : 'public');
+
+      const derivedName =
+        rawUser.user_metadata?.displayName ||
+        rawUser.user_metadata?.full_name ||
+        demo?.displayName ||
+        (derivedRole === 'super_admin'
+          ? 'Global Super Administrator'
+          : derivedRole === 'owner'
+          ? 'Aline Mugisha (Business Owner)'
+          : derivedRole === 'manager'
+          ? 'Vedaste Zirimwabagabo (Depot Manager)'
+          : email.split('@')[0] || 'User');
+
+      profile = {
+        id: `p-${rawUser.id}`,
+        authUserId: rawUser.id,
+        role: derivedRole,
+        displayName: derivedName,
+        mfaEnabled: derivedRole === 'super_admin' || derivedRole === 'owner' || derivedRole === 'manager',
+      };
+    } else {
+      // Ensure superadmin email always possesses super_admin privilege
+      if (email.includes('superadmin') && profile.role !== 'super_admin') {
+        profile.role = 'super_admin';
+      }
+    }
+
+    const mfaEnabled = Boolean(rawUser.factors && rawUser.factors.length > 0) || Boolean(profile?.mfaEnabled);
     return {
       ...rawUser,
+      phone: rawUser.phone || demo?.phone,
       profile,
       mfaEnabled,
     };

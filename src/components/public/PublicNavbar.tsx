@@ -59,6 +59,15 @@ export default function PublicNavbar() {
                 {link.label}
               </NavLink>
             ))}
+            {user?.profile?.role === 'super_admin' && (
+              <NavLink
+                to="/admin"
+                className="text-xs font-black uppercase tracking-wider text-red-700 hover:text-red-900 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-xl border border-red-200 transition flex items-center gap-1.5"
+              >
+                <ShieldCheck size={14} className="text-red-700" />
+                Super Admin Console
+              </NavLink>
+            )}
             {user?.profile?.role === 'public' && (
               <NavLink
                 to="/portal"

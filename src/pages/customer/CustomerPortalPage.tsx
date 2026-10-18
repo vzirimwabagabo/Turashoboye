@@ -166,7 +166,7 @@ const INITIAL_CUSTOMER_ORDERS: CustomerOrder[] = [
 ];
 
 export default function CustomerPortalPage() {
-  const { user } = useAuth();
+  const { user, isImpersonating } = useAuth();
   const [orders, setOrders] = useState<CustomerOrder[]>(INITIAL_CUSTOMER_ORDERS);
   const [selectedReceipt, setSelectedReceipt] = useState<PrintableOrder | null>(null);
 
@@ -183,7 +183,14 @@ export default function CustomerPortalPage() {
     feedType === 'broiler' ? (birdCount * 4.5) / 50 : (birdCount * 0.12 * 30) / 50
   );
 
-  const customerName = user?.profile?.displayName || user?.email?.split('@')[0] || 'Jean-Paul Habimana';
+  const isSuperAdminReal = user?.profile?.role === 'super_admin' && !isImpersonating;
+  const isOwnerReal = user?.profile?.role === 'owner' && !isImpersonating;
+  const isManagerReal = user?.profile?.role === 'manager' && !isImpersonating;
+
+  const customerName =
+    user?.profile?.displayName ||
+    (isSuperAdminReal ? 'Super Administrator' : user?.email?.split('@')[0]) ||
+    'Jean-Paul Habimana';
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -247,15 +254,60 @@ export default function CustomerPortalPage() {
   return (
     <div className="min-h-screen bg-gray-50/50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto space-y-8">
+        {/* Super Admin / Staff Notice if viewing portal directly */}
+        {isSuperAdminReal && (
+          <div className="rounded-3xl bg-gradient-to-r from-red-950 via-slate-900 to-purple-950 text-white p-5 border-2 border-red-500 shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-red-600 text-white flex items-center justify-center shrink-0 shadow-md animate-pulse">
+                <Sparkles size={22} />
+              </div>
+              <div>
+                <span className="font-black text-red-300 text-xs uppercase tracking-wider block">
+                  🛡️ Super Administrator Console Available
+                </span>
+                <p className="text-sm font-bold text-white mt-0.5">
+                  You are currently previewing the Customer / Farmer view. Your master command dashboard with platform graphs, user controls, and impersonation tools is at <code className="bg-black/40 px-1.5 py-0.5 rounded text-red-200">/admin</code>.
+                </p>
+              </div>
+            </div>
+            <Link
+              to="/admin"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-black uppercase tracking-wider shadow-lg transition shrink-0"
+            >
+              Open Super Admin Dashboard →
+            </Link>
+          </div>
+        )}
+
+        {(isOwnerReal || isManagerReal) && (
+          <div className="rounded-2xl bg-slate-900 text-white p-4 border border-slate-700 shadow-md flex items-center justify-between">
+            <div className="text-xs">
+              <span className="font-bold text-emerald-400 block">Staff Account Detected</span>
+              <span className="text-gray-300">You are viewing the customer-facing portal. Return to your staff operations workspace.</span>
+            </div>
+            <Link
+              to="/dashboard"
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold"
+            >
+              Go to Dashboard →
+            </Link>
+          </div>
+        )}
+
         {/* Welcome Header */}
         <div className="rounded-3xl bg-gradient-to-r from-[#2E7D32] via-emerald-800 to-[#1B5E20] text-white p-6 sm:p-8 shadow-xl">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white/20 text-white mb-2">
-                <MapPin className="h-3.5 w-3.5" /> Mahama Farmer Account
+                <MapPin className="h-3.5 w-3.5" />
+                {isSuperAdminReal
+                  ? 'Customer Portal (Super Admin Preview)'
+                  : isImpersonating
+                  ? 'Acting as Mahama Farmer'
+                  : 'Mahama Farmer Account'}
               </span>
               <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
-                Welcome back, {customerName}!
+                Welcome, {customerName}!
               </h1>
               <p className="mt-1 text-sm text-green-100 max-w-xl">
                 Track your animal feed orders, request fresh batches directly from the Mahama Depot, and view official RSB-compliant receipts.
