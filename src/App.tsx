@@ -28,6 +28,7 @@ import OrdersPage from './pages/sales/OrdersPage';
 import CustomersPage from './pages/sales/CustomersPage';
 import CompliancePage from './pages/compliance/CompliancePage';
 import ReportsPage from './pages/reports/ReportsPage';
+import SettingsPage from './pages/settings/SettingsPage';
 import NotFoundPage from './pages/NotFoundPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -75,6 +76,7 @@ function App() {
             <Route path="/customers" element={<CustomersPage />} />
             <Route path="/compliance" element={<CompliancePage />} />
             <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Route>
 
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
