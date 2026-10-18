@@ -3,6 +3,7 @@ import { Plus, Search, Filter, Box, Eye, EyeOff, Tag, Package } from 'lucide-rea
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import ProductModal from '../../components/products/ProductModal';
+import { getOptimizedImageUrl } from '../../lib/cloudinary';
 
 interface ProductItem {
   id: string;
@@ -13,6 +14,7 @@ interface ProductItem {
   target_animal?: string;
   published: boolean;
   variants_count: number;
+  image_url?: string;
   variants: {
     id: string;
     sku: string;
@@ -106,21 +108,26 @@ export default function ProductsPage() {
             target_animal,
             published,
             categories(name),
-            product_variants(id, sku, package_size, price_rwf, cost_rwf)
+            product_variants(id, sku, package_size, price_rwf, cost_rwf),
+            product_images(image_url, is_primary)
           `);
 
         if (!error && data && data.length > 0) {
-          const formatted: ProductItem[] = data.map((p: any) => ({
-            id: p.id,
-            name: p.name,
-            slug: p.slug,
-            type: p.type,
-            target_animal: p.target_animal,
-            published: p.published,
-            category_name: p.categories?.name,
-            variants_count: p.product_variants ? p.product_variants.length : 0,
-            variants: p.product_variants || [],
-          }));
+          const formatted: ProductItem[] = data.map((p: any) => {
+            const primaryImg = p.product_images?.find((img: any) => img.is_primary) || p.product_images?.[0];
+            return {
+              id: p.id,
+              name: p.name,
+              slug: p.slug,
+              type: p.type,
+              target_animal: p.target_animal,
+              published: p.published,
+              category_name: p.categories?.name,
+              image_url: primaryImg?.image_url,
+              variants_count: p.product_variants ? p.product_variants.length : 0,
+              variants: p.product_variants || [],
+            };
+          });
           setProducts(formatted);
         }
       } catch (err) {
@@ -228,8 +235,16 @@ export default function ProductsPage() {
                   <tr key={p.id} className="hover:bg-gray-50/80 transition-colors">
                     <td className="px-5 py-4 font-semibold text-gray-900">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-emerald-50 text-[#2E7D32] flex items-center justify-center flex-shrink-0">
-                          <Package size={16} />
+                        <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#2E7D32] flex items-center justify-center flex-shrink-0 overflow-hidden border border-gray-200">
+                          {p.image_url ? (
+                            <img
+                              src={getOptimizedImageUrl(p.image_url, { width: 80, height: 80, crop: 'fill' })}
+                              alt={p.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <Package size={18} />
+                          )}
                         </div>
                         <div>
                           <span>{p.name}</span>

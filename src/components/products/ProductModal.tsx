@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { X, Plus, Trash2, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import ImageUpload from '../common/ImageUpload';
 
 interface VariantInput {
   package_size: string;
@@ -23,6 +24,7 @@ export default function ProductModal({ onClose, onSaved }: ProductModalProps) {
   const [published, setPublished] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploadedImage, setUploadedImage] = useState<{ url: string; publicId: string } | null>(null);
 
   const [variants, setVariants] = useState<VariantInput[]>([
     { package_size: '50kg Bag', sku: 'FEED-50KG', price_rwf: 35000, cost_rwf: 29000 },
@@ -100,6 +102,22 @@ export default function ProductModal({ onClose, onSaved }: ProductModalProps) {
 
         if (varErr) throw varErr;
 
+        // Insert product image if uploaded
+        let primaryImageUrl: string | undefined = undefined;
+        if (uploadedImage) {
+          const { error: imgErr } = await supabase.from('product_images').insert({
+            product_id: newProd.id,
+            cloudinary_public_id: uploadedImage.publicId,
+            image_url: uploadedImage.url,
+            alt_text: name,
+            is_primary: true,
+            display_order: 0,
+          });
+          if (!imgErr) {
+            primaryImageUrl = uploadedImage.url;
+          }
+        }
+
         onSaved({
           id: newProd.id,
           name: newProd.name,
@@ -109,6 +127,7 @@ export default function ProductModal({ onClose, onSaved }: ProductModalProps) {
           published: newProd.published,
           variants_count: newVars.length,
           variants: newVars,
+          image_url: primaryImageUrl || uploadedImage?.url,
         });
       } else {
         // Fallback simulated local response
@@ -121,6 +140,7 @@ export default function ProductModal({ onClose, onSaved }: ProductModalProps) {
           published,
           variants_count: variants.length,
           variants: variants.map((v, idx) => ({ id: `var-${idx}`, ...v })),
+          image_url: uploadedImage?.url,
         });
       }
 
@@ -136,6 +156,7 @@ export default function ProductModal({ onClose, onSaved }: ProductModalProps) {
         published,
         variants_count: variants.length,
         variants: variants.map((v, idx) => ({ id: `var-${idx}`, ...v })),
+        image_url: uploadedImage?.url,
       });
       onClose();
     } finally {
@@ -238,6 +259,18 @@ export default function ProductModal({ onClose, onSaved }: ProductModalProps) {
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Recommended usage, crude protein percentage, and storage notes..."
               className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]"
+            />
+          </div>
+
+          {/* Cloudinary Image Upload */}
+          <div className="pt-2 border-t border-gray-100">
+            <ImageUpload
+              label="Product Packaging Photo"
+              helperText="Upload official bag packaging photo (JPG, PNG, WebP up to 2MB). Auto-compressed via Cloudinary WebP."
+              value={uploadedImage?.url}
+              publicId={uploadedImage?.publicId}
+              onChange={setUploadedImage}
+              folder="products"
             />
           </div>
 

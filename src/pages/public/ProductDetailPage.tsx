@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Phone, ShieldCheck, Check, Clock, MapPin, Truck } from 'lucide-react';
+import { ArrowLeft, Phone, ShieldCheck, Check, Clock, MapPin, Truck, Package } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { getOptimizedImageUrl } from '../../lib/cloudinary';
 
 interface DetailProduct {
   id: string;
@@ -11,6 +13,7 @@ interface DetailProduct {
   category: string;
   feed_type: string;
   nutritional_focus: string;
+  image_url?: string;
   variants: {
     id: string;
     sku: string;
@@ -95,8 +98,69 @@ const SAMPLE_DETAILS: Record<string, DetailProduct> = {
 
 export default function ProductDetailPage() {
   const { slug } = useParams<{ slug: string }>();
-  const product = (slug && SAMPLE_DETAILS[slug]) || SAMPLE_DETAILS['broiler-starter-mash'];
+  const [product, setProduct] = useState<DetailProduct>(
+    (slug && SAMPLE_DETAILS[slug]) || SAMPLE_DETAILS['broiler-starter-mash']
+  );
   const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
+
+  useEffect(() => {
+    if (!slug) return;
+    const fetchProduct = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select(`
+            id,
+            name,
+            slug,
+            description,
+            target_animal,
+            type,
+            categories(name),
+            product_variants(id, sku, package_size, price_rwf, is_active),
+            product_images(image_url, is_primary)
+          `)
+          .eq('slug', slug)
+          .maybeSingle();
+
+        if (!error && data) {
+          const primaryImg = data.product_images?.find((img: any) => img.is_primary) || data.product_images?.[0];
+          const activeVariants = (data.product_variants || [])
+            .filter((v: any) => v.is_active)
+            .map((v: any) => ({
+              id: v.id,
+              sku: v.sku,
+              package_size: v.package_size,
+              price_rwf: v.price_rwf,
+              availability: 'In Stock',
+            }));
+
+          const categoryName = Array.isArray(data.categories)
+            ? (data.categories[0] as { name?: string } | undefined)?.name
+            : (data.categories as { name?: string } | null)?.name;
+
+          setProduct({
+            id: data.id,
+            name: data.name,
+            slug: data.slug,
+            description: data.description || '',
+            target_animal: data.target_animal || 'Livestock',
+            category: categoryName || 'Animal Feed',
+            feed_type: data.type === 'raw_ingredient' ? 'Raw Milled Ingredient' : 'Finished Feed',
+            nutritional_focus: 'Quality Verified Feed Formulation',
+            image_url: primaryImg?.image_url,
+            variants: activeVariants.length > 0 ? activeVariants : [
+              { id: 'def', sku: 'DEF-50KG', package_size: '50kg Bag', price_rwf: 30000, availability: 'In Stock' },
+            ],
+          });
+        }
+      } catch (err) {
+        console.warn('Using baseline feed details', err);
+      }
+    };
+
+    fetchProduct();
+  }, [slug]);
 
   const currentVariant = product.variants[selectedVariantIndex] || product.variants[0];
 
@@ -121,23 +185,42 @@ export default function ProductDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column: Product Visual & Description */}
         <div className="lg:col-span-7 space-y-6">
-          <div className="bg-white border border-gray-200 rounded-3xl p-6 sm:p-8 shadow-xs space-y-5">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="px-3 py-1 rounded-md bg-emerald-50 text-[#2E7D32] text-xs font-bold border border-emerald-100">
-                {product.category}
-              </span>
-              <span className="px-3 py-1 rounded-md bg-gray-100 text-gray-700 text-xs font-medium">
-                Target: {product.target_animal}
-              </span>
-            </div>
+          <div className="bg-white border border-gray-200 rounded-3xl overflow-hidden shadow-xs">
+            {/* Product Image Header */}
+            {product.image_url ? (
+              <div className="w-full h-72 sm:h-80 bg-gray-100 overflow-hidden border-b border-gray-100">
+                <img
+                  src={getOptimizedImageUrl(product.image_url, { width: 900, height: 500, crop: 'fill' })}
+                  alt={product.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="w-full h-44 bg-emerald-50/60 flex items-center justify-center border-b border-gray-100 text-emerald-800/40">
+                <div className="flex flex-col items-center gap-1">
+                  <Package className="w-12 h-12 stroke-[1.5]" />
+                  <span className="text-xs font-bold tracking-wider uppercase">Turashoboye Feed Depot</span>
+                </div>
+              </div>
+            )}
 
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 leading-tight">
-              {product.name}
-            </h1>
+            <div className="p-6 sm:p-8 space-y-5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="px-3 py-1 rounded-md bg-emerald-50 text-[#2E7D32] text-xs font-bold border border-emerald-100">
+                  {product.category}
+                </span>
+                <span className="px-3 py-1 rounded-md bg-gray-100 text-gray-700 text-xs font-medium">
+                  Target: {product.target_animal}
+                </span>
+              </div>
 
-            <p className="text-gray-700 text-base leading-relaxed">
-              {product.description}
-            </p>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 leading-tight">
+                {product.name}
+              </h1>
+
+              <p className="text-gray-700 text-base leading-relaxed">
+                {product.description}
+              </p>
 
             <div className="pt-4 border-t border-gray-100 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div className="p-3.5 bg-gray-50 rounded-xl">
@@ -150,6 +233,7 @@ export default function ProductDetailPage() {
               </div>
             </div>
           </div>
+        </div>
 
           {/* Quality & Traceability Guarantee */}
           <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-5 space-y-3">

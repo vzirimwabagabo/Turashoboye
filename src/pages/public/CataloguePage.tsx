@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Search, Filter, Package, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { getOptimizedImageUrl } from '../../lib/cloudinary';
 
 interface PublicVariant {
   id: string;
@@ -18,6 +19,7 @@ interface PublicProduct {
   target_animal: string;
   category_name?: string;
   category_slug?: string;
+  image_url?: string;
   variants: PublicVariant[];
 }
 
@@ -111,28 +113,33 @@ export default function CataloguePage() {
             description,
             target_animal,
             categories(name, slug),
-            product_variants(id, sku, package_size, price_rwf, is_active)
+            product_variants(id, sku, package_size, price_rwf, is_active),
+            product_images(image_url, is_primary)
           `)
           .eq('published', true);
 
         if (!error && data && data.length > 0) {
-          const formatted: PublicProduct[] = data.map((item: any) => ({
-            id: item.id,
-            name: item.name,
-            slug: item.slug,
-            description: item.description,
-            target_animal: item.target_animal,
-            category_name: item.categories?.name,
-            category_slug: item.categories?.slug,
-            variants: (item.product_variants || [])
-              .filter((v: any) => v.is_active)
-              .map((v: any) => ({
-                id: v.id,
-                sku: v.sku,
-                package_size: v.package_size,
-                price_rwf: v.price_rwf,
-              })),
-          }));
+          const formatted: PublicProduct[] = data.map((item: any) => {
+            const primaryImg = item.product_images?.find((img: any) => img.is_primary) || item.product_images?.[0];
+            return {
+              id: item.id,
+              name: item.name,
+              slug: item.slug,
+              description: item.description,
+              target_animal: item.target_animal,
+              category_name: item.categories?.name,
+              category_slug: item.categories?.slug,
+              image_url: primaryImg?.image_url,
+              variants: (item.product_variants || [])
+                .filter((v: any) => v.is_active)
+                .map((v: any) => ({
+                  id: v.id,
+                  sku: v.sku,
+                  package_size: v.package_size,
+                  price_rwf: v.price_rwf,
+                })),
+            };
+          });
           setProducts(formatted);
         }
       } catch (err) {
@@ -284,61 +291,79 @@ export default function CataloguePage() {
             return (
               <div
                 key={product.id}
-                className="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs hover:shadow-md hover:border-[#2E7D32] transition-all flex flex-col justify-between"
+                className="group rounded-2xl border border-gray-200 bg-white overflow-hidden shadow-xs hover:shadow-md hover:border-[#2E7D32] transition-all flex flex-col justify-between"
               >
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-3">
-                    <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-emerald-50 text-[#2E7D32] border border-emerald-100">
-                      {product.target_animal || 'General Feed'}
-                    </span>
-                    {product.category_name && (
-                      <span className="text-xs text-gray-500 font-medium">
-                        {product.category_name}
-                      </span>
-                    )}
-                  </div>
-
-                  <h2 className="text-lg font-bold text-gray-900 leading-snug">
-                    {product.name}
-                  </h2>
-
-                  <p className="mt-2 text-sm text-gray-600 line-clamp-3 leading-relaxed">
-                    {product.description}
-                  </p>
-
-                  {/* Packaging Sizes */}
-                  <div className="mt-4 space-y-1.5">
-                    <p className="text-xs font-semibold text-gray-700">Available Packaging:</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {product.variants.map((variant) => (
-                        <span
-                          key={variant.id}
-                          className="px-2.5 py-1 rounded-md bg-gray-100 text-gray-800 text-xs font-medium"
-                        >
-                          {variant.package_size} —{' '}
-                          <span className="font-bold text-emerald-900">
-                            {variant.price_rwf.toLocaleString()} RWF
-                          </span>
-                        </span>
-                      ))}
+                {/* Product Image Header */}
+                <div className="relative h-44 w-full bg-emerald-50/50 overflow-hidden flex items-center justify-center border-b border-gray-100">
+                  {product.image_url ? (
+                    <img
+                      src={getOptimizedImageUrl(product.image_url, { width: 600, height: 350, crop: 'fill' })}
+                      alt={product.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-emerald-800/40 p-4">
+                      <Package className="w-12 h-12 stroke-[1.5] mb-1" />
+                      <span className="text-[10px] font-bold tracking-wider uppercase">Mahama Depots</span>
                     </div>
-                  </div>
+                  )}
+                  <span className="absolute top-3 left-3 text-[11px] font-semibold px-2.5 py-1 rounded-md bg-white/95 text-[#2E7D32] border border-emerald-100 shadow-xs backdrop-blur-xs">
+                    {product.target_animal || 'General Feed'}
+                  </span>
+                  {product.category_name && (
+                    <span className="absolute top-3 right-3 text-[11px] text-gray-700 font-medium px-2 py-0.5 rounded-md bg-white/95 shadow-xs border border-gray-200">
+                      {product.category_name}
+                    </span>
+                  )}
                 </div>
 
-                <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between">
+                <div className="p-6 flex-1 flex flex-col justify-between">
                   <div>
-                    <span className="text-xs text-gray-500 block">Starting from</span>
-                    <span className="text-lg font-extrabold text-[#2E7D32]">
-                      {minPrice ? `${minPrice.toLocaleString()} RWF` : 'Inquire'}
-                    </span>
+                    <h2 className="text-lg font-bold text-gray-900 leading-snug group-hover:text-[#2E7D32] transition-colors">
+                      {product.name}
+                    </h2>
+
+                    <p className="mt-2 text-sm text-gray-600 line-clamp-2 leading-relaxed">
+                      {product.description}
+                    </p>
+
+                    {/* Packaging Sizes */}
+                    <div className="mt-4 space-y-1.5">
+                      <p className="text-xs font-semibold text-gray-700">Available Packaging:</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {product.variants.map((variant) => (
+                          <span
+                            key={variant.id}
+                            className="px-2.5 py-1 rounded-md bg-gray-100 text-gray-800 text-xs font-medium"
+                          >
+                            {variant.package_size} —{' '}
+                            <span className="font-bold text-emerald-900">
+                              {variant.price_rwf.toLocaleString()} RWF
+                            </span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   </div>
 
-                  <Link
-                    to={`/catalogue/${product.slug}`}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#2E7D32] text-white text-xs font-medium hover:bg-[#256b29] transition-colors"
-                  >
-                    View Details
-                  </Link>
+                  <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between">
+                    <div>
+                      <span className="text-xs text-gray-500 block">Starting from</span>
+                      <span className="text-lg font-extrabold text-[#2E7D32]">
+                        {minPrice ? `${minPrice.toLocaleString()} RWF` : 'Inquire'}
+                      </span>
+                    </div>
+
+                    <Link
+                      to={`/catalogue/${product.slug}`}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#2E7D32] text-white text-xs font-medium hover:bg-[#256b29] transition-colors"
+                    >
+                      View Details
+                    </Link>
+                  </div>
                 </div>
               </div>
             );
