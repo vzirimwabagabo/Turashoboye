@@ -168,27 +168,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     setError(null);
     const { email, password, displayName, role } = creds;
-    const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          displayName,
+          role,
+        },
+      },
+    });
+
     if (signUpError) {
       setError(signUpError.message);
       setLoading(false);
       return { success: false, error: signUpError.message };
     }
 
-    if (data.user?.id) {
-      const { error: profileError } = await supabase.from("profiles").insert([
-        {
-          auth_user_id: data.user.id,
-          role,
-          display_name: displayName,
-          mfa_enabled: false,
-        },
-      ]);
-      if (profileError) {
-        setError(profileError.message);
-        setLoading(false);
-        return { success: false, error: profileError.message };
-      }
+    if (data.session?.user) {
+      const authUser = await createAuthUser(data.session.user);
+      setUser(authUser);
+      setSession(data.session);
     }
 
     setLoading(false);

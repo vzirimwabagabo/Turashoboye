@@ -18,6 +18,8 @@ import {
   Shield,
   BarChart2,
   Settings,
+  TrendingUp,
+  UserCheck,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { UserRole } from "../../types/database";
@@ -29,6 +31,7 @@ interface SidebarProps {
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: Home, roles: [UserRole.PUBLIC, UserRole.SALES_STAFF, UserRole.INVENTORY, UserRole.MANAGER, UserRole.OWNER] },
+  { to: "/trends", label: "Trends & Command", icon: TrendingUp, roles: [UserRole.MANAGER, UserRole.OWNER] },
   { to: "/products", label: "Products & SKUs", icon: Box, roles: [UserRole.MANAGER, UserRole.OWNER] },
   { to: "/inventory", label: "Stock Ledger", icon: Truck, roles: [UserRole.INVENTORY, UserRole.MANAGER, UserRole.OWNER] },
   { to: "/procurement/orders", label: "Purchase Orders", icon: ClipboardList, roles: [UserRole.INVENTORY, UserRole.MANAGER, UserRole.OWNER] },
@@ -40,6 +43,7 @@ const navItems = [
   { to: "/customers", label: "Customers", icon: Users, roles: [UserRole.SALES_STAFF, UserRole.MANAGER, UserRole.OWNER] },
   { to: "/compliance", label: "Compliance & RSB", icon: Shield, roles: [UserRole.MANAGER, UserRole.OWNER] },
   { to: "/reports", label: "Reports", icon: BarChart2, roles: [UserRole.MANAGER, UserRole.OWNER] },
+  { to: "/users", label: "User Control", icon: UserCheck, roles: [UserRole.OWNER] },
   { to: "/settings", label: "Settings", icon: Settings, roles: [UserRole.OWNER] },
 ];
 

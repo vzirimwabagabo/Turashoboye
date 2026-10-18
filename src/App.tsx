@@ -29,6 +29,8 @@ import CustomersPage from './pages/sales/CustomersPage';
 import CompliancePage from './pages/compliance/CompliancePage';
 import ReportsPage from './pages/reports/ReportsPage';
 import SettingsPage from './pages/settings/SettingsPage';
+import TrendsPage from './pages/admin/TrendsPage';
+import UsersPage from './pages/admin/UsersPage';
 import NotFoundPage from './pages/NotFoundPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -64,6 +66,7 @@ function App() {
             }
           >
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/trends" element={<TrendsPage />} />
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/inventory" element={<InventoryPage />} />
             <Route path="/inventory/lots" element={<LotsPage />} />
@@ -76,6 +79,7 @@ function App() {
             <Route path="/customers" element={<CustomersPage />} />
             <Route path="/compliance" element={<CompliancePage />} />
             <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/users" element={<UsersPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
 
