@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   ShieldAlert,
   Users,
@@ -12,9 +13,11 @@ import {
   Sliders,
   RefreshCw,
   Search,
+  UserCheck,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
+
 
 interface PlatformMetric {
   title: string;
@@ -65,11 +68,26 @@ const REVENUE_BARS = [
 ];
 
 export default function SuperAdminDashboardPage() {
-  const { user } = useAuth();
+  const { user, actOnBehalfOf } = useAuth();
+  const navigate = useNavigate();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [actionNotice, setActionNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const handleActAsUser = (targetUser: any) => {
+    actOnBehalfOf({
+      id: targetUser.id || targetUser.auth_user_id,
+      displayName: targetUser.display_name || targetUser.full_name || 'User',
+      role: targetUser.role,
+      email: targetUser.email,
+    });
+    if (targetUser.role === 'public') {
+      navigate('/portal');
+    } else {
+      navigate('/dashboard');
+    }
+  };
 
   // Business Owner Privilege Constraints
   const [ownerDiscountLimit, setOwnerDiscountLimit] = useState('10');
@@ -356,6 +374,7 @@ export default function SuperAdminDashboardPage() {
                 <th className="px-4 py-3">Current Privilege</th>
                 <th className="px-4 py-3">Account Scope</th>
                 <th className="px-4 py-3">Registered Date</th>
+                <th className="px-4 py-3 text-center">Act On Behalf</th>
                 <th className="px-4 py-3 text-right">Super Admin Override</th>
               </tr>
             </thead>
@@ -398,11 +417,24 @@ export default function SuperAdminDashboardPage() {
                   </td>
 
                   <td className="px-4 py-3.5 text-gray-400">
-                    {new Date(u.created_at || Date.now()).toLocaleDateString('en-GB', {
+                    {new Date(u.created_at || '2026-10-18T00:00:00Z').toLocaleDateString('en-GB', {
                       day: 'numeric',
                       month: 'short',
                       year: 'numeric',
                     })}
+                  </td>
+
+                  <td className="px-4 py-3.5 text-center">
+                    {u.role !== 'super_admin' && (
+                      <button
+                        onClick={() => handleActAsUser(u)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-900 font-bold text-xs border border-purple-300 transition"
+                        title={`Act on behalf of ${u.display_name}`}
+                      >
+                        <UserCheck size={13} className="text-purple-700" />
+                        <span>Act as User</span>
+                      </button>
+                    )}
                   </td>
 
                   <td className="px-4 py-3.5 text-right">

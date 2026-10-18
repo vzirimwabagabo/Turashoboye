@@ -13,14 +13,31 @@ import {
   Users,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import OwnerDashboardView from '../components/dashboard/OwnerDashboardView';
+import DepotManagerDashboardView from '../components/dashboard/DepotManagerDashboardView';
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const profile = user?.profile;
 
-  // Customers should never see staff operations dashboard
+  // 1. Super Admin is redirected to the Master Admin Console
+  if (profile?.role === 'super_admin') {
+    return <Navigate to="/admin" replace />;
+  }
+
+  // 2. Customers / Farmers should see their customer portal
   if (profile?.role === 'public') {
     return <Navigate to="/portal" replace />;
+  }
+
+  // 3. Business Owner gets the executive P&L, margins, and approval queue
+  if (profile?.role === 'owner') {
+    return <OwnerDashboardView />;
+  }
+
+  // 4. Depot / Operations Manager gets live silo gauges, milling batches, and stock
+  if (profile?.role === 'manager') {
+    return <DepotManagerDashboardView />;
   }
 
   const firstName =

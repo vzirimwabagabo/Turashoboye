@@ -33,6 +33,7 @@ const SAMPLE_DETAILS: Record<string, DetailProduct> = {
     category: 'Poultry Feed',
     feed_type: 'Complete Starter Mash',
     nutritional_focus: 'Min 21% Crude Protein, Balanced Lysine & Methionine',
+    image_url: 'https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?auto=format&fit=crop&w=800&q=80',
     variants: [
       { id: 'v1-1', sku: 'BSM-50KG', package_size: '50kg Bag', price_rwf: 38000, availability: 'In Stock' },
       { id: 'v1-2', sku: 'BSM-25KG', package_size: '25kg Bag', price_rwf: 19500, availability: 'In Stock' },
@@ -48,6 +49,7 @@ const SAMPLE_DETAILS: Record<string, DetailProduct> = {
     category: 'Poultry Feed',
     feed_type: 'Complete Layer Mash',
     nutritional_focus: 'High Calcium (3.8-4.2%), 16.5% Crude Protein',
+    image_url: 'https://images.unsplash.com/photo-1516467508483-a7212febe31a?auto=format&fit=crop&w=800&q=80',
     variants: [
       { id: 'v2-1', sku: 'LCM-50KG', package_size: '50kg Bag', price_rwf: 35000, availability: 'In Stock' },
       { id: 'v2-2', sku: 'LCM-25KG', package_size: '25kg Bag', price_rwf: 18000, availability: 'In Stock' },
@@ -62,6 +64,7 @@ const SAMPLE_DETAILS: Record<string, DetailProduct> = {
     category: 'Pig Feed',
     feed_type: 'Grower Mash',
     nutritional_focus: '16% Crude Protein, Digestible Energy 3,100 kcal/kg',
+    image_url: 'https://images.unsplash.com/photo-1516467508483-a7212febe31a?auto=format&fit=crop&w=800&q=80',
     variants: [
       { id: 'v3-1', sku: 'PGF-50KG', package_size: '50kg Bag', price_rwf: 32000, availability: 'In Stock' },
       { id: 'v3-2', sku: 'PGF-25KG', package_size: '25kg Bag', price_rwf: 16500, availability: 'In Stock' },
@@ -76,6 +79,7 @@ const SAMPLE_DETAILS: Record<string, DetailProduct> = {
     category: 'Cattle & Dairy Feed',
     feed_type: 'Supplementary Dairy Concentrate',
     nutritional_focus: '17% Crude Protein, Balanced Starch & Rumen Minerals',
+    image_url: 'https://images.unsplash.com/photo-1546445317-29f4545e9d53?auto=format&fit=crop&w=800&q=80',
     variants: [
       { id: 'v4-1', sku: 'DCM-50KG', package_size: '50kg Bag', price_rwf: 28000, availability: 'In Stock' },
     ],
@@ -84,17 +88,19 @@ const SAMPLE_DETAILS: Record<string, DetailProduct> = {
     id: 'sample-p5',
     name: 'Milled Soya Bean Meal (Feed Grade)',
     slug: 'milled-soya-meal',
-    description: 'Clean, toasted, and ground feed-grade soya bean meal. Excellent vegetable protein source for on-farm mixing of poultry, swine, and dairy feed rations.',
-    target_animal: 'Multi-Species Protein Supplement',
+    description: 'Roasted and milled high-protein soya meal (min 44% crude protein) for on-farm mixing and custom rations.',
+    target_animal: 'Multi-Species',
     category: 'Raw Ingredients',
-    feed_type: 'Raw Milled Ingredient',
-    nutritional_focus: 'Min 44% Crude Protein',
+    feed_type: 'Raw Protein Ingredient',
+    nutritional_focus: 'Min 44% Crude Protein, Low Moisture (<10%)',
+    image_url: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=800&q=80',
     variants: [
       { id: 'v5-1', sku: 'SOYA-50KG', package_size: '50kg Bag', price_rwf: 42000, availability: 'In Stock' },
       { id: 'v5-2', sku: 'SOYA-25KG', package_size: '25kg Bag', price_rwf: 21500, availability: 'In Stock' },
     ],
   },
 };
+
 
 export default function ProductDetailPage() {
   const { slug } = useParams<{ slug: string }>();

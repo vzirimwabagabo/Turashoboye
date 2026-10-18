@@ -35,12 +35,14 @@ import SuperAdminDashboardPage from './pages/admin/SuperAdminDashboardPage';
 import NotFoundPage from './pages/NotFoundPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import ImpersonationBanner from './components/layout/ImpersonationBanner';
 import { UserRole } from './types/database';
 
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <ImpersonationBanner />
         <Routes>
           {/* Public customer-facing website */}
           <Route element={<PublicLayout />}>

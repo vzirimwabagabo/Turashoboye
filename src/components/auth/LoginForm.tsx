@@ -49,15 +49,16 @@ export default function LoginForm() {
       setSubmitting(false);
       if (res.success) {
         const clean = email.toLowerCase();
-        if (clean.includes('superadmin')) {
+        if (res.role === UserRole.SUPER_ADMIN || clean.includes('superadmin')) {
           navigate('/admin');
-        } else if (clean.includes('farmer') || clean.includes('customer')) {
+        } else if (res.role === UserRole.PUBLIC || clean.includes('farmer') || clean.includes('customer')) {
           navigate('/portal');
         } else {
           navigate('/dashboard');
         }
       }
     }
+
   };
 
   const selectPersona = (pEmail: string) => {

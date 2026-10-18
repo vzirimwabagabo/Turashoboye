@@ -33,6 +33,7 @@ const FALLBACK_PRODUCTS: PublicProduct[] = [
     target_animal: 'Poultry (Broilers)',
     category_slug: 'poultry-feed',
     category_name: 'Poultry Feed',
+    image_url: 'https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?auto=format&fit=crop&w=800&q=80',
     variants: [
       { id: 'v1-1', sku: 'BSM-50KG', package_size: '50kg Bag', price_rwf: 38000 },
       { id: 'v1-2', sku: 'BSM-25KG', package_size: '25kg Bag', price_rwf: 19500 },
@@ -47,6 +48,7 @@ const FALLBACK_PRODUCTS: PublicProduct[] = [
     target_animal: 'Poultry (Layers)',
     category_slug: 'poultry-feed',
     category_name: 'Poultry Feed',
+    image_url: 'https://images.unsplash.com/photo-1516467508483-a7212febe31a?auto=format&fit=crop&w=800&q=80',
     variants: [
       { id: 'v2-1', sku: 'LCM-50KG', package_size: '50kg Bag', price_rwf: 35000 },
       { id: 'v2-2', sku: 'LCM-25KG', package_size: '25kg Bag', price_rwf: 18000 },
@@ -60,6 +62,7 @@ const FALLBACK_PRODUCTS: PublicProduct[] = [
     target_animal: 'Swine (Pigs)',
     category_slug: 'pig-feed',
     category_name: 'Pig Feed',
+    image_url: 'https://images.unsplash.com/photo-1516467508483-a7212febe31a?auto=format&fit=crop&w=800&q=80',
     variants: [
       { id: 'v3-1', sku: 'PGF-50KG', package_size: '50kg Bag', price_rwf: 32000 },
       { id: 'v3-2', sku: 'PGF-25KG', package_size: '25kg Bag', price_rwf: 16500 },
@@ -73,6 +76,7 @@ const FALLBACK_PRODUCTS: PublicProduct[] = [
     target_animal: 'Dairy Cattle',
     category_slug: 'cattle-feed',
     category_name: 'Cattle & Dairy Feed',
+    image_url: 'https://images.unsplash.com/photo-1546445317-29f4545e9d53?auto=format&fit=crop&w=800&q=80',
     variants: [
       { id: 'v4-1', sku: 'DCM-50KG', package_size: '50kg Bag', price_rwf: 28000 },
     ],
@@ -85,6 +89,7 @@ const FALLBACK_PRODUCTS: PublicProduct[] = [
     target_animal: 'Multi-Species',
     category_slug: 'raw-ingredients',
     category_name: 'Raw Ingredients',
+    image_url: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=800&q=80',
     variants: [
       { id: 'v5-1', sku: 'SOYA-50KG', package_size: '50kg Bag', price_rwf: 42000 },
       { id: 'v5-2', sku: 'SOYA-25KG', package_size: '25kg Bag', price_rwf: 21500 },

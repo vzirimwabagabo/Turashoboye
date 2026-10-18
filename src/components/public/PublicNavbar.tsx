@@ -85,14 +85,41 @@ export default function PublicNavbar() {
 
             {user ? (
               <div className="flex items-center gap-2 border-l border-gray-200 pl-3">
-                {user.profile?.role && user.profile.role !== 'public' ? (
+                {user.profile?.role === 'super_admin' ? (
+                  <Link
+                    to="/admin"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-red-900 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-lg transition"
+                    title="Super Administrator Console"
+                  >
+                    <ShieldCheck size={14} className="text-red-700" />
+                    <span>Super Admin</span>
+                  </Link>
+                ) : user.profile?.role === 'owner' ? (
+                  <Link
+                    to="/dashboard"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-purple-900 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-3 py-1.5 rounded-lg transition"
+                    title="Executive Owner Dashboard"
+                  >
+                    <ShieldCheck size={14} className="text-purple-700" />
+                    <span>Owner Portal</span>
+                  </Link>
+                ) : user.profile?.role === 'manager' ? (
+                  <Link
+                    to="/dashboard"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-900 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-lg transition"
+                    title="Depot Operations Floor"
+                  >
+                    <ShieldCheck size={14} className="text-blue-700" />
+                    <span>Depot Ops</span>
+                  </Link>
+                ) : user.profile?.role && user.profile.role !== 'public' ? (
                   <Link
                     to="/dashboard"
                     className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-lg transition"
                     title="Staff Management Workspace"
                   >
                     <ShieldCheck size={14} className="text-[#2E7D32]" />
-                    <span>Staff Operations</span>
+                    <span>Staff Ops</span>
                   </Link>
                 ) : (
                   <Link
@@ -125,7 +152,14 @@ export default function PublicNavbar() {
           {/* Mobile hamburger button */}
           <div className="flex items-center gap-2 md:hidden">
             {user ? (
-              user.profile?.role && user.profile.role !== 'public' ? (
+              user.profile?.role === 'super_admin' ? (
+                <Link
+                  to="/admin"
+                  className="text-xs font-bold text-red-900 px-2.5 py-1.5 rounded-md bg-red-50 border border-red-200"
+                >
+                  Admin
+                </Link>
+              ) : user.profile?.role && user.profile.role !== 'public' ? (
                 <Link
                   to="/dashboard"
                   className="text-xs font-bold text-emerald-900 px-2.5 py-1.5 rounded-md bg-emerald-50 border border-emerald-200"

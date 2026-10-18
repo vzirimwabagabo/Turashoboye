@@ -51,10 +51,59 @@ const DEMO_PERSONAS: Record<string, { role: Profile['role']; displayName: string
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [realUser, setRealUser] = useState<AuthUser | null>(null);
+  const [impersonatedUser, setImpersonatedUser] = useState<AuthUser | null>(() => {
+    try {
+      const stored = sessionStorage.getItem('turashoboye_act_as_user');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const actOnBehalfOf = (target: AuthUser | { id: string; email?: string; displayName: string; role: Profile['role']; phone?: string }) => {
+    let targetAuthUser: AuthUser;
+    if ('profile' in target && target.profile) {
+      targetAuthUser = target as AuthUser;
+    } else {
+      const t = target as { id: string; email?: string; displayName: string; role: Profile['role']; phone?: string };
+      targetAuthUser = {
+        id: t.id,
+        app_metadata: {},
+        user_metadata: {},
+        aud: 'authenticated',
+        created_at: new Date().toISOString(),
+        email: t.email || `${t.displayName.toLowerCase().replace(/\s+/g, '.')}@turashoboye.rw`,
+        phone: t.phone,
+        mfaEnabled: false,
+        profile: {
+          id: `p-${t.id}`,
+          authUserId: t.id,
+          role: t.role,
+          displayName: t.displayName,
+          mfaEnabled: false,
+        },
+      };
+    }
+    setImpersonatedUser(targetAuthUser);
+    try {
+      sessionStorage.setItem('turashoboye_act_as_user', JSON.stringify(targetAuthUser));
+    } catch (e) {
+      console.warn('Failed to persist impersonation session', e);
+    }
+  };
+
+  const stopImpersonation = () => {
+    setImpersonatedUser(null);
+    try {
+      sessionStorage.removeItem('turashoboye_act_as_user');
+    } catch (e) {
+      console.warn('Failed to clear impersonation session', e);
+    }
+  };
 
   // Helper to fetch profile data once we have a Supabase auth user
   const fetchProfile = async (authUserId: string): Promise<Profile | undefined> => {
@@ -91,10 +140,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSession(sess);
       if (sess?.user) {
         const authUser = await createAuthUser(sess.user);
-        setUser(authUser);
+        setRealUser(authUser);
       } else {
         // If not a demo session, clear
-        setUser((prev) => (prev?.id?.startsWith('u-') ? prev : null));
+        setRealUser((prev) => (prev?.id?.startsWith('u-') ? prev : null));
       }
       setLoading(false);
     });
@@ -104,7 +153,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSession(data.session);
       if (data.session?.user) {
         const authUser = await createAuthUser(data.session.user);
-        setUser(authUser);
+        setRealUser(authUser);
       }
       setLoading(false);
     };
@@ -129,10 +178,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     if (!signInError && authData?.user) {
       const authUser = await createAuthUser(authData.user);
-      setUser(authUser);
+      setRealUser(authUser);
       setSession(authData.session);
       setLoading(false);
-      return { success: true };
+      return { success: true, role: authUser.profile?.role };
     }
 
     // 2. Pre-configured testing personas (accepted if password is 'turashoboye2026' or during local verification)
@@ -155,9 +204,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           mfaEnabled: demo.role === 'owner' || demo.role === 'manager',
         },
       };
-      setUser(mockAuthUser);
+      setRealUser(mockAuthUser);
       setLoading(false);
-      return { success: true };
+      return { success: true, role: demo.role };
     }
 
     if (signInError) {
@@ -193,7 +242,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     if (data.session?.user) {
       const authUser = await createAuthUser(data.session.user);
-      setUser(authUser);
+      setRealUser(authUser);
       setSession(data.session);
     }
 
@@ -205,7 +254,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     const { error: signOutError } = await supabase.auth.signOut();
     if (signOutError) setError(signOutError.message);
-    setUser(null);
+    setRealUser(null);
+    setImpersonatedUser(null);
+    try {
+      sessionStorage.removeItem('turashoboye_act_as_user');
+    } catch {
+      // ignore
+    }
     setSession(null);
     setLoading(false);
   };
@@ -219,8 +274,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(false);
   };
 
+  const effectiveUser = impersonatedUser ?? realUser;
+  const isImpersonating = Boolean(impersonatedUser);
+
   const value: AuthContextProps = {
-    user,
+    user: effectiveUser,
+    realUser,
+    impersonatedUser,
+    isImpersonating,
+    actOnBehalfOf,
+    stopImpersonation,
     session,
     loading,
     error,
@@ -232,3 +295,4 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
+

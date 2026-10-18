@@ -30,24 +30,35 @@ interface SidebarProps {
   onClose: () => void;
 }
 
-const navItems = [
-  { to: "/admin", label: "Super Admin", icon: ShieldAlert, roles: [UserRole.SUPER_ADMIN] },
-  { to: "/dashboard", label: "Operations Dashboard", icon: Home, roles: [UserRole.SALES_STAFF, UserRole.INVENTORY, UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
+const getNavItems = (role: UserRole) => [
+  { to: "/admin", label: "Super Admin Console", icon: ShieldAlert, roles: [UserRole.SUPER_ADMIN] },
+  {
+    to: "/dashboard",
+    label:
+      role === UserRole.OWNER
+        ? "Executive Overview"
+        : role === UserRole.MANAGER
+        ? "Depot Operations"
+        : "Operations Dashboard",
+    icon: Home,
+    roles: [UserRole.SALES_STAFF, UserRole.INVENTORY, UserRole.MANAGER, UserRole.OWNER],
+  },
   { to: "/trends", label: "Trends & Command", icon: TrendingUp, roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
   { to: "/products", label: "Products & SKUs", icon: Box, roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
   { to: "/inventory", label: "Stock Ledger", icon: Truck, roles: [UserRole.INVENTORY, UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
   { to: "/procurement/orders", label: "Purchase Orders", icon: ClipboardList, roles: [UserRole.INVENTORY, UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
   { to: "/procurement/suppliers", label: "Suppliers", icon: Building2, roles: [UserRole.INVENTORY, UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
-  { to: "/production", label: "Production Runs", icon: Factory, roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
+  { to: "/production", label: "Milling Batches", icon: Factory, roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
   { to: "/production/formulas", label: "Feed Formulations", icon: Beaker, roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
   { to: "/production/traceability", label: "Batch Traceability", icon: Compass, roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
   { to: "/sales", label: "Sales & Orders", icon: ShoppingCart, roles: [UserRole.SALES_STAFF, UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
   { to: "/customers", label: "Customers", icon: Users, roles: [UserRole.SALES_STAFF, UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
   { to: "/compliance", label: "Compliance & RSB", icon: Shield, roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
-  { to: "/reports", label: "Reports", icon: BarChart2, roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
+  { to: "/reports", label: "Reports & P&L", icon: BarChart2, roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
   { to: "/users", label: "User Control", icon: UserCheck, roles: [UserRole.OWNER, UserRole.SUPER_ADMIN] },
   { to: "/settings", label: "Settings", icon: Settings, roles: [UserRole.OWNER, UserRole.SUPER_ADMIN] },
 ];
+
 
 export const Sidebar = ({ open, onClose }: SidebarProps) => {
   const { user, signOut } = useAuth();
@@ -89,7 +100,7 @@ export const Sidebar = ({ open, onClose }: SidebarProps) => {
 
         {/* Nav links */}
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-          {navItems
+          {getNavItems(role)
             .filter((item) => (item.roles as readonly UserRole[]).includes(role))
             .map((item) => {
               const Icon = item.icon;

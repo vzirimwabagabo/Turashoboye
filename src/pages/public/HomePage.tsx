@@ -7,6 +7,7 @@ const CATEGORIES = [
     slug: 'poultry-feed',
     description: 'High-protein broiler starter, finisher, and layer feeds formulated for healthy flock growth and egg production.',
     tag: 'Poultry',
+    image: 'https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?auto=format&fit=crop&w=800&q=80',
     color: 'from-amber-500/10 to-orange-500/10 text-amber-800 border-amber-200',
   },
   {
@@ -14,6 +15,7 @@ const CATEGORIES = [
     slug: 'pig-feed',
     description: 'Energy-dense mashes and grower rations designed for piglet vitality, optimal weight gain, and sow maintenance.',
     tag: 'Swine',
+    image: 'https://images.unsplash.com/photo-1516467508483-a7212febe31a?auto=format&fit=crop&w=800&q=80',
     color: 'from-rose-500/10 to-red-500/10 text-rose-800 border-rose-200',
   },
   {
@@ -21,6 +23,7 @@ const CATEGORIES = [
     slug: 'cattle-feed',
     description: 'Balanced dairy meal concentrates supporting milk yield and ruminant digestive health.',
     tag: 'Cattle',
+    image: 'https://images.unsplash.com/photo-1546445317-29f4545e9d53?auto=format&fit=crop&w=800&q=80',
     color: 'from-emerald-500/10 to-teal-500/10 text-emerald-800 border-emerald-200',
   },
   {
@@ -28,9 +31,11 @@ const CATEGORIES = [
     slug: 'raw-ingredients',
     description: 'Freshly milled whole maize, soya meal, sunflower cake, and wheat bran available in wholesale bags.',
     tag: 'Ingredients',
+    image: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=800&q=80',
     color: 'from-blue-500/10 to-cyan-500/10 text-blue-800 border-blue-200',
   },
 ];
+
 
 const ADVANTAGES = [
   {
@@ -119,22 +124,31 @@ export default function HomePage() {
             <Link
               key={cat.slug}
               to={`/catalogue?category=${cat.slug}`}
-              className="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs hover:shadow-md hover:border-[#2E7D32] transition-all group flex flex-col justify-between"
+              className="rounded-2xl border border-gray-200 bg-white overflow-hidden shadow-xs hover:shadow-md hover:border-[#2E7D32] transition-all group flex flex-col justify-between"
             >
               <div>
-                <span className={`inline-block px-2.5 py-1 rounded-md text-xs font-semibold border mb-4 ${cat.color}`}>
-                  {cat.tag}
-                </span>
-                <h3 className="text-lg font-bold text-gray-900 group-hover:text-[#2E7D32] transition-colors">
-                  {cat.name}
-                </h3>
-                <p className="mt-2 text-sm text-gray-600 leading-relaxed">
-                  {cat.description}
-                </p>
+                <div className="h-40 w-full overflow-hidden relative">
+                  <img
+                    src={cat.image}
+                    alt={cat.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                  <span className={`absolute top-3 left-3 px-2.5 py-1 rounded-md text-xs font-bold border backdrop-blur-xs bg-white/90 ${cat.color}`}>
+                    {cat.tag}
+                  </span>
+                </div>
+                <div className="p-5">
+                  <h3 className="text-base font-bold text-gray-900 group-hover:text-[#2E7D32] transition-colors">
+                    {cat.name}
+                  </h3>
+                  <p className="mt-2 text-xs text-gray-600 leading-relaxed">
+                    {cat.description}
+                  </p>
+                </div>
               </div>
-              <div className="mt-6 flex items-center gap-1 text-sm font-medium text-[#2E7D32]">
-                <span>Browse options</span>
-                <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+              <div className="px-5 pb-5 pt-0 flex items-center gap-1 text-xs font-bold text-[#2E7D32]">
+                <span>Browse feed options</span>
+                <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
               </div>
             </Link>
           ))}
