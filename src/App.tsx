@@ -11,6 +11,7 @@ import AboutPage from './pages/public/AboutPage';
 import ContactPage from './pages/public/ContactPage';
 import PrivacyPage from './pages/public/PrivacyPage';
 import TermsPage from './pages/public/TermsPage';
+import CustomerPortalPage from './pages/customer/CustomerPortalPage';
 
 // Authenticated staff & management pages
 import LoginPage from './pages/LoginPage';
@@ -30,6 +31,7 @@ import ReportsPage from './pages/reports/ReportsPage';
 import NotFoundPage from './pages/NotFoundPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import { UserRole } from './types/database';
 
 function App() {
   return (
@@ -45,6 +47,8 @@ function App() {
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/terms" element={<TermsPage />} />
+            <Route path="/portal" element={<CustomerPortalPage />} />
+            <Route path="/my-orders" element={<CustomerPortalPage />} />
           </Route>
 
           {/* Authentication */}
@@ -53,7 +57,7 @@ function App() {
           {/* Authenticated Staff Management Operations */}
           <Route
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={[UserRole.OWNER, UserRole.MANAGER, UserRole.SALES_STAFF, UserRole.INVENTORY]}>
                 <AppLayout />
               </ProtectedRoute>
             }

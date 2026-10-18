@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { Menu, X, Phone, ShoppingBag } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
 
 const navLinks = [
   { to: '/', label: 'Home' },
@@ -11,6 +12,7 @@ const navLinks = [
 
 export default function PublicNavbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { user, signOut } = useAuth();
 
   return (
     <header className="sticky top-0 z-30 bg-white border-b border-gray-100 shadow-xs">
@@ -57,6 +59,18 @@ export default function PublicNavbar() {
                 {link.label}
               </NavLink>
             ))}
+            {user?.profile?.role === 'public' && (
+              <NavLink
+                to="/portal"
+                className={({ isActive }) =>
+                  `text-sm font-semibold transition-colors ${
+                    isActive ? 'text-[#2E7D32]' : 'text-green-700 hover:text-green-900'
+                  }`
+                }
+              >
+                My Feed Orders
+              </NavLink>
+            )}
           </nav>
 
           {/* Actions */}
@@ -68,22 +82,52 @@ export default function PublicNavbar() {
               <ShoppingBag size={16} />
               Browse Feeds
             </Link>
-            <Link
-              to="/login"
-              className="px-3.5 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              Staff Login
-            </Link>
+
+            {user ? (
+              <div className="flex items-center gap-2 border-l border-gray-200 pl-3">
+                <Link
+                  to={user.profile?.role === 'public' ? '/portal' : '/dashboard'}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-800 hover:text-[#2E7D32] px-2 py-1 rounded-md hover:bg-gray-50"
+                >
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-[10px] font-bold text-[#2E7D32]">
+                    {(user.profile?.displayName || user.email || 'U').charAt(0).toUpperCase()}
+                  </span>
+                  <span>{user.profile?.role === 'public' ? 'My Portal' : 'Dashboard'}</span>
+                </Link>
+                <button
+                  onClick={async () => await signOut()}
+                  className="text-xs text-gray-500 hover:text-red-600 px-2 py-1 rounded hover:bg-gray-50 transition"
+                >
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              <Link
+                to="/login"
+                className="px-3.5 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Sign In
+              </Link>
+            )}
           </div>
 
           {/* Mobile hamburger button */}
           <div className="flex items-center gap-2 md:hidden">
-            <Link
-              to="/login"
-              className="text-xs font-medium text-emerald-800 px-2.5 py-1.5 rounded-md bg-emerald-50"
-            >
-              Staff
-            </Link>
+            {user ? (
+              <Link
+                to={user.profile?.role === 'public' ? '/portal' : '/dashboard'}
+                className="text-xs font-bold text-emerald-800 px-2.5 py-1.5 rounded-md bg-emerald-50"
+              >
+                {user.profile?.role === 'public' ? 'My Portal' : 'Dashboard'}
+              </Link>
+            ) : (
+              <Link
+                to="/login"
+                className="text-xs font-medium text-emerald-800 px-2.5 py-1.5 rounded-md bg-emerald-50"
+              >
+                Sign In
+              </Link>
+            )}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"

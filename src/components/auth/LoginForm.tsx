@@ -37,20 +37,66 @@ export default function LoginForm() {
       if (res.success) {
         setSuccessMessage('Account registered successfully! Signing you in...');
         setTimeout(() => {
-          navigate('/dashboard');
+          if (role === UserRole.PUBLIC) {
+            navigate('/portal');
+          } else {
+            navigate('/dashboard');
+          }
         }, 1200);
       }
     } else {
       const res = await signIn(email, password);
       setSubmitting(false);
       if (res.success) {
-        navigate('/dashboard');
+        const clean = email.toLowerCase();
+        if (clean.includes('farmer') || clean.includes('customer')) {
+          navigate('/portal');
+        } else {
+          navigate('/dashboard');
+        }
       }
     }
   };
 
+  const selectPersona = (pEmail: string) => {
+    setIsSignUp(false);
+    setEmail(pEmail);
+    setPassword('turashoboye2026');
+    setSuccessMessage(null);
+  };
+
   return (
     <div className="space-y-5">
+      {/* 1-Click Evaluation Personas */}
+      <div className="rounded-xl bg-gray-50 p-3 border border-gray-200 space-y-2">
+        <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">
+          Select Test Persona:
+        </span>
+        <div className="grid grid-cols-3 gap-1.5">
+          <button
+            type="button"
+            onClick={() => selectPersona('owner@turashoboye.rw')}
+            className="px-2 py-1.5 rounded-lg border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-800 text-[11px] font-bold transition text-center"
+          >
+            Admin / Owner
+          </button>
+          <button
+            type="button"
+            onClick={() => selectPersona('manager@turashoboye.rw')}
+            className="px-2 py-1.5 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-800 text-[11px] font-bold transition text-center"
+          >
+            Depot Manager
+          </button>
+          <button
+            type="button"
+            onClick={() => selectPersona('farmer@turashoboye.rw')}
+            className="px-2 py-1.5 rounded-lg border border-green-200 bg-green-50 hover:bg-green-100 text-[#2E7D32] text-[11px] font-bold transition text-center"
+          >
+            Customer (Farmer)
+          </button>
+        </div>
+      </div>
+
       {/* Tab toggle */}
       <div className="flex rounded-lg bg-gray-100 p-1">
         <button

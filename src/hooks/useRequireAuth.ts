@@ -27,8 +27,12 @@ export const useRequireAuth = (requiredRoles?: UserRole | UserRole[]) => {
       if (requiredRoles) {
         const allowed = Array.isArray(requiredRoles) ? requiredRoles : [requiredRoles];
         if (!allowed.includes(user.profile?.role as UserRole)) {
-          // Authenticated but not authorized
-          navigate("/unauthorized", { replace: true });
+          // If a normal customer/public user hits staff routes, redirect them cleanly to customer portal
+          if (user.profile?.role === 'public') {
+            navigate("/portal", { replace: true });
+          } else {
+            navigate("/unauthorized", { replace: true });
+          }
         }
       }
     }
