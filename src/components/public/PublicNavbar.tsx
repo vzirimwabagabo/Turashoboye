@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
-import { Menu, X, Phone, ShoppingBag } from 'lucide-react';
+import { Menu, X, Phone, ShoppingBag, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
 const navLinks = [
@@ -85,15 +85,26 @@ export default function PublicNavbar() {
 
             {user ? (
               <div className="flex items-center gap-2 border-l border-gray-200 pl-3">
-                <Link
-                  to={user.profile?.role === 'public' ? '/portal' : '/dashboard'}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-800 hover:text-[#2E7D32] px-2 py-1 rounded-md hover:bg-gray-50"
-                >
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-[10px] font-bold text-[#2E7D32]">
-                    {(user.profile?.displayName || user.email || 'U').charAt(0).toUpperCase()}
-                  </span>
-                  <span>{user.profile?.role === 'public' ? 'My Portal' : 'Dashboard'}</span>
-                </Link>
+                {user.profile?.role && user.profile.role !== 'public' ? (
+                  <Link
+                    to="/dashboard"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-lg transition"
+                    title="Staff Management Workspace"
+                  >
+                    <ShieldCheck size={14} className="text-[#2E7D32]" />
+                    <span>Staff Operations</span>
+                  </Link>
+                ) : (
+                  <Link
+                    to="/portal"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-800 hover:text-[#2E7D32] px-2 py-1 rounded-md hover:bg-gray-50"
+                  >
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-[10px] font-bold text-[#2E7D32]">
+                      {(user.profile?.displayName || user.email || 'U').charAt(0).toUpperCase()}
+                    </span>
+                    <span>My Account</span>
+                  </Link>
+                )}
                 <button
                   onClick={async () => await signOut()}
                   className="text-xs text-gray-500 hover:text-red-600 px-2 py-1 rounded hover:bg-gray-50 transition"
@@ -114,12 +125,21 @@ export default function PublicNavbar() {
           {/* Mobile hamburger button */}
           <div className="flex items-center gap-2 md:hidden">
             {user ? (
-              <Link
-                to={user.profile?.role === 'public' ? '/portal' : '/dashboard'}
-                className="text-xs font-bold text-emerald-800 px-2.5 py-1.5 rounded-md bg-emerald-50"
-              >
-                {user.profile?.role === 'public' ? 'My Portal' : 'Dashboard'}
-              </Link>
+              user.profile?.role && user.profile.role !== 'public' ? (
+                <Link
+                  to="/dashboard"
+                  className="text-xs font-bold text-emerald-900 px-2.5 py-1.5 rounded-md bg-emerald-50 border border-emerald-200"
+                >
+                  Staff Ops
+                </Link>
+              ) : (
+                <Link
+                  to="/portal"
+                  className="text-xs font-bold text-emerald-800 px-2.5 py-1.5 rounded-md bg-emerald-50"
+                >
+                  My Account
+                </Link>
+              )
             ) : (
               <Link
                 to="/login"
