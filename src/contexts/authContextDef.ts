@@ -4,16 +4,15 @@ import type { Profile } from '../types/database';
 
 export interface AuthContextProps extends AuthState {
   realUser: AuthUser | null;
-  impersonatedUser: AuthUser | null;
+  /**
+   * Universal client-side impersonation is disabled for security compliance.
+   * Server-delegated impersonation requires audited session tokens and backend authorization.
+   */
   isImpersonating: boolean;
-  actOnBehalfOf: (target: AuthUser | { id: string; email?: string; displayName: string; role: Profile['role']; phone?: string }) => void;
-  stopImpersonation: () => void;
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string; role?: Profile['role'] }>;
   signUp: (creds: SignupCredentials) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
 }
 
-
 export const AuthContext = createContext<AuthContextProps | undefined>(undefined);
-

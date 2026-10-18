@@ -266,7 +266,7 @@ export default function CustomerPortalPage() {
                   🛡️ Super Administrator Console Available
                 </span>
                 <p className="text-sm font-bold text-white mt-0.5">
-                  You are currently previewing the Customer / Farmer view. Your master command dashboard with platform graphs, user controls, and impersonation tools is at <code className="bg-black/40 px-1.5 py-0.5 rounded text-red-200">/admin</code>.
+                  You are currently previewing the Customer / Farmer view. Your master command dashboard with platform graphs, user privileges, and governance controls is at <code className="bg-black/40 px-1.5 py-0.5 rounded text-red-200">/admin</code>.
                 </p>
               </div>
             </div>
@@ -302,8 +302,6 @@ export default function CustomerPortalPage() {
                 <MapPin className="h-3.5 w-3.5" />
                 {isSuperAdminReal
                   ? 'Customer Portal (Super Admin Preview)'
-                  : isImpersonating
-                  ? 'Acting as Mahama Farmer'
                   : 'Mahama Farmer Account'}
               </span>
               <h1 className="text-2xl sm:text-3xl font-black tracking-tight">

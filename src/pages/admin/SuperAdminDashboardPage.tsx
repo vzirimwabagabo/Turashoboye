@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   ShieldAlert,
   Users,
@@ -13,11 +12,9 @@ import {
   Sliders,
   RefreshCw,
   Search,
-  UserCheck,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
-
 
 interface PlatformMetric {
   title: string;
@@ -27,67 +24,43 @@ interface PlatformMetric {
   subtext: string;
 }
 
-const PLATFORM_METRICS: PlatformMetric[] = [
-  {
-    title: 'Platform Gross Revenue',
-    value: '42,850,000 RWF',
-    change: '+24.5%',
-    positive: true,
-    subtext: 'Aggregated cross-depot feed turnover',
-  },
-  {
-    title: 'Total Animal Feed Milled',
-    value: '138.4 MT',
-    change: '+19.2%',
-    positive: true,
-    subtext: '2,768x 50kg bag equivalents produced',
-  },
-  {
-    title: 'Total Platform Accounts',
-    value: '142 Users',
-    change: '+38 new',
-    positive: true,
-    subtext: '128 Farmers, 8 Staff, 4 Managers, 2 Owners',
-  },
-  {
-    title: 'Statutory Safety & RSB Pass',
-    value: '100.0%',
-    change: 'Zero Alerts',
-    positive: true,
-    subtext: 'Compliant with RS EAS 287 specifications',
-  },
-];
-
-const REVENUE_BARS = [
-  { label: 'May', val: 5400000, max: 15400000 },
-  { label: 'Jun', val: 7800000, max: 15400000 },
-  { label: 'Jul', val: 9900000, max: 15400000 },
-  { label: 'Aug', val: 11400000, max: 15400000 },
-  { label: 'Sep', val: 13200000, max: 15400000 },
-  { label: 'Oct', val: 15400000, max: 15400000 },
-];
-
 export default function SuperAdminDashboardPage() {
-  const { user, actOnBehalfOf } = useAuth();
-  const navigate = useNavigate();
+  const { user } = useAuth();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [actionNotice, setActionNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const handleActAsUser = (targetUser: any) => {
-    actOnBehalfOf({
-      id: targetUser.id || targetUser.auth_user_id,
-      displayName: targetUser.display_name || targetUser.full_name || 'User',
-      role: targetUser.role,
-      email: targetUser.email,
-    });
-    if (targetUser.role === 'public') {
-      navigate('/portal');
-    } else {
-      navigate('/dashboard');
-    }
-  };
+  const platformMetrics: PlatformMetric[] = [
+    {
+      title: 'Platform Gross Revenue',
+      value: '0 RWF (Staging)',
+      change: 'Pre-launch',
+      positive: true,
+      subtext: 'Awaiting first live depot transaction',
+    },
+    {
+      title: 'Total Animal Feed Milled',
+      value: '0.0 MT',
+      change: 'Ready for batching',
+      positive: true,
+      subtext: 'Operational formulas and silos configured',
+    },
+    {
+      title: 'Total Platform Accounts',
+      value: `${users.length} Registered`,
+      change: 'Active in DB',
+      positive: true,
+      subtext: 'Verified in PostgreSQL public.profiles',
+    },
+    {
+      title: 'Statutory Compliance Status',
+      value: 'Filings in Draft',
+      change: 'Audit Pending',
+      positive: false,
+      subtext: 'RICA & RSB applications in preparation',
+    },
+  ];
 
   // Business Owner Privilege Constraints
   const [ownerDiscountLimit, setOwnerDiscountLimit] = useState('10');
@@ -191,7 +164,7 @@ export default function SuperAdminDashboardPage() {
 
       {/* 1. Global Platform Performance Graphs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {PLATFORM_METRICS.map((m, idx) => (
+        {platformMetrics.map((m, idx) => (
           <div key={idx} className="bg-white border border-gray-200 rounded-2xl p-5 shadow-xs">
             <div className="flex items-center justify-between text-xs font-bold text-gray-500 uppercase tracking-wider">
               <span>{m.title}</span>
@@ -231,13 +204,20 @@ export default function SuperAdminDashboardPage() {
           </div>
 
           <div className="space-y-4 pt-2">
-            {REVENUE_BARS.map((bar, i) => {
-              const pct = Math.round((bar.val / bar.max) * 100);
+            {[
+              { label: 'May', val: 0, max: 10000000 },
+              { label: 'Jun', val: 0, max: 10000000 },
+              { label: 'Jul', val: 0, max: 10000000 },
+              { label: 'Aug', val: 0, max: 10000000 },
+              { label: 'Sep', val: 0, max: 10000000 },
+              { label: 'Oct', val: 0, max: 10000000 },
+            ].map((bar, i) => {
+              const pct = bar.max > 0 ? Math.round((bar.val / bar.max) * 100) : 0;
               return (
                 <div key={i} className="space-y-1">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold text-gray-700">{bar.label} 2026</span>
-                    <span className="font-mono font-bold text-gray-900">{bar.val.toLocaleString()} RWF</span>
+                    <span className="font-mono font-bold text-gray-900">{bar.val.toLocaleString()} RWF (Staging)</span>
                   </div>
                   <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
                     <div
@@ -374,7 +354,6 @@ export default function SuperAdminDashboardPage() {
                 <th className="px-4 py-3">Current Privilege</th>
                 <th className="px-4 py-3">Account Scope</th>
                 <th className="px-4 py-3">Registered Date</th>
-                <th className="px-4 py-3 text-center">Act On Behalf</th>
                 <th className="px-4 py-3 text-right">Super Admin Override</th>
               </tr>
             </thead>
@@ -422,19 +401,6 @@ export default function SuperAdminDashboardPage() {
                       month: 'short',
                       year: 'numeric',
                     })}
-                  </td>
-
-                  <td className="px-4 py-3.5 text-center">
-                    {u.role !== 'super_admin' && (
-                      <button
-                        onClick={() => handleActAsUser(u)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-900 font-bold text-xs border border-purple-300 transition"
-                        title={`Act on behalf of ${u.display_name}`}
-                      >
-                        <UserCheck size={13} className="text-purple-700" />
-                        <span>Act as User</span>
-                      </button>
-                    )}
                   </td>
 
                   <td className="px-4 py-3.5 text-right">

@@ -85,15 +85,13 @@ export default function AdjustmentModal({
 
         if (rpcErr) throw rpcErr;
         onAdjusted(selectedVariantId, (data as any)?.new_stock ?? resultantStock);
+        onClose();
       } else {
-        // Fallback update
-        onAdjusted(selectedVariantId, resultantStock);
+        throw new Error('No operational inventory location found in database. Adjustment halted.');
       }
-      onClose();
     } catch (err: any) {
-      console.warn('Simulating local ledger adjustment', err);
-      onAdjusted(selectedVariantId, resultantStock);
-      onClose();
+      console.error('Inventory adjustment failed:', err);
+      setError(err?.message || 'Database rejected the adjustment. Please verify your permissions.');
     } finally {
       setSubmitting(false);
     }

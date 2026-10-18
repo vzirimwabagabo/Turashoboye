@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Users,
   UserPlus,
@@ -14,7 +13,6 @@ import {
   X,
   Loader2,
   RefreshCw,
-  UserCheck,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
@@ -90,29 +88,13 @@ const ROLE_BADGES: Record<Profile['role'], { label: string; color: string }> = {
 };
 
 export default function UsersPage() {
-  const { user, actOnBehalfOf } = useAuth();
-  const navigate = useNavigate();
+  const { user } = useAuth();
   const [users, setUsers] = useState<UserRecord[]>(FALLBACK_USERS);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [modalOpen, setModalOpen] = useState(false);
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  const handleActAsUser = (target: UserRecord) => {
-    actOnBehalfOf({
-      id: target.id || target.auth_user_id,
-      displayName: target.display_name || target.full_name || 'User',
-      role: target.role,
-      email: target.email,
-      phone: target.phone,
-    });
-    if (target.role === 'public') {
-      navigate('/portal');
-    } else {
-      navigate('/dashboard');
-    }
-  };
 
   // New user form state
   const [newEmail, setNewEmail] = useState('');
@@ -334,14 +316,13 @@ export default function UsersPage() {
                 <th className="px-5 py-3.5">Assigned Role</th>
                 <th className="px-5 py-3.5">Security & MFA</th>
                 <th className="px-5 py-3.5">Registered On</th>
-                {isSuperAdmin && <th className="px-5 py-3.5 text-center">Act On Behalf</th>}
                 {isOwnerOrSuperAdmin && <th className="px-5 py-3.5 text-right">Role Control</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-gray-400">
+                  <td colSpan={6} className="py-12 text-center text-gray-400">
                     No users matching criteria.
                   </td>
                 </tr>
@@ -414,21 +395,6 @@ export default function UsersPage() {
                           })}
                         </div>
                       </td>
-
-                      {isSuperAdmin && (
-                        <td className="px-5 py-4 text-center">
-                          {u.role !== 'super_admin' && (
-                            <button
-                              onClick={() => handleActAsUser(u)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-900 font-bold text-xs border border-purple-300 transition"
-                              title={`Act on behalf of ${u.display_name}`}
-                            >
-                              <UserCheck size={13} className="text-purple-700" />
-                              <span>Act as User</span>
-                            </button>
-                          )}
-                        </td>
-                      )}
 
                       {isOwnerOrSuperAdmin && (
                         <td className="px-5 py-4 text-right">

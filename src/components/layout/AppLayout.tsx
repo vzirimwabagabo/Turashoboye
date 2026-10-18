@@ -4,21 +4,22 @@ import { Outlet } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import SyncStatusBar, { SyncHeaderPill } from './SyncStatusBar';
+import AuthenticatedFooter from './AuthenticatedFooter';
 
 interface AppLayoutProps {
   children?: ReactNode;
 }
 
 /**
- * Main application layout.
- * - Mobile: top header bar with hamburger + brand name + offline status pill
- * - Desktop: fixed sidebar on left, top status bar with sync indicator, content fills remaining space
+ * Authenticated business workspace layout.
+ * - Mobile: sticky top bar with brand & sync pill, full accessible drawer
+ * - Desktop: fixed sidebar on left, operational status header, scrollable body with sticky footer
  */
 export default function AppLayout({ children }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
       {/* Sidebar */}
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
@@ -46,7 +47,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         </header>
 
         {/* Desktop top header bar */}
-        <header className="hidden lg:flex h-14 items-center justify-between border-b border-gray-200 bg-white px-8">
+        <header className="hidden lg:flex h-14 items-center justify-between border-b border-gray-200 bg-white px-8 shrink-0">
           <div className="flex items-center gap-2 text-xs text-gray-500 font-medium">
             <span>Operational Depot:</span>
             <span className="font-semibold text-gray-800">Mahama Primary Depot (DEPOT-01)</span>
@@ -59,11 +60,17 @@ export default function AppLayout({ children }: AppLayoutProps) {
         {/* Offline sync banner */}
         <SyncStatusBar />
 
-        {/* Page content rendered by children or nested routes */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
-          {children ? children : <Outlet />}
-        </main>
+        {/* Page content rendered by children or nested routes with shared footer */}
+        <div className="flex-1 overflow-y-auto flex flex-col">
+          <main className="flex-1 p-4 md:p-6 lg:p-8">
+            {children ? children : <Outlet />}
+          </main>
+          <AuthenticatedFooter />
+        </div>
       </div>
     </div>
   );
 }
+
+// Named alias matching specification
+export { AppLayout as AuthenticatedLayout };

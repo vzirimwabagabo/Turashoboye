@@ -291,8 +291,61 @@ export default function OrdersPage() {
         if (custData && custData.length > 0) {
           setCustomers(custData);
         }
+
+        const { data: ordersData, error: ordersErr } = await supabase
+          .from('sales_orders')
+          .select(`
+            id,
+            order_number,
+            customer_id,
+            order_date,
+            status,
+            subtotal_rwf,
+            discount_rwf,
+            total_amount_rwf,
+            notes,
+            customers(name, phone, address),
+            sales_order_items(id, quantity, unit_price_rwf, discount_rwf, line_total_rwf, product_variants(package_size, sku, products(name))),
+            payments(id, method, amount_rwf, payment_date, reference, status)
+          `)
+          .order('order_date', { ascending: false });
+
+        if (!ordersErr && ordersData && ordersData.length > 0) {
+          const mapped: SalesOrderRow[] = ordersData.map((o: any) => {
+            const paidSum = (o.payments || []).reduce((acc: number, p: any) => acc + (p.amount_rwf || 0), 0);
+            const total = o.total_amount_rwf || 0;
+            return {
+              id: o.id,
+              orderNumber: o.order_number,
+              customerId: o.customer_id,
+              customerName: o.customers?.name || 'Customer',
+              customerPhone: o.customers?.phone,
+              customerAddress: o.customers?.address,
+              orderDate: o.order_date,
+              status: o.status || 'confirmed',
+              subtotalRwf: o.subtotal_rwf || total,
+              discountRwf: o.discount_rwf || 0,
+              totalAmountRwf: total,
+              paidAmountRwf: paidSum,
+              balanceDueRwf: Math.max(0, total - paidSum),
+              paymentStatus: paidSum >= total ? 'paid' : paidSum > 0 ? 'partial' : 'unpaid',
+              items: (o.sales_order_items || []).map((it: any) => ({
+                productName: it.product_variants?.products?.name || 'Feed Product',
+                sku: it.product_variants?.sku || 'SKU',
+                packageSize: it.product_variants?.package_size || 'Package',
+                quantity: it.quantity,
+                unitPriceRwf: it.unit_price_rwf,
+                discountRwf: it.discount_rwf || 0,
+                lineTotalRwf: it.line_total_rwf || (it.quantity * it.unit_price_rwf),
+              })),
+              payments: o.payments || [],
+              notes: o.notes,
+            };
+          });
+          setOrders(mapped);
+        }
       } catch (err) {
-        console.warn('Using offline customer reference data:', err);
+        console.warn('Using baseline customer & order reference data:', err);
       }
     };
     fetchOnlineOrders();
@@ -310,8 +363,49 @@ export default function OrdersPage() {
     };
     notes?: string;
   }) => {
+    // 1. Submit through PostgreSQL transactional procedure
+    let serverOrderId: string | undefined;
+    let serverOrderNumber: string | undefined;
+
+    try {
+      const { data, error: rpcError } = await supabase.rpc('record_sale_transaction', {
+        p_customer_id: payload.customerId,
+        p_location_id: payload.locationId,
+        p_order_items: payload.items.map((it) => ({
+          variant_id: it.variantId,
+          batch_id: it.batchId,
+          quantity: it.quantity,
+          unit_price_rwf: it.unitPriceRwf,
+          discount_rwf: it.discountRwf || 0,
+        })),
+        p_payment: payload.payment
+          ? {
+              method: payload.payment.method,
+              amount_rwf: payload.payment.amountRwf,
+              reference: payload.payment.reference,
+            }
+          : null,
+        p_notes: payload.notes || null,
+      });
+
+      if (rpcError) {
+        console.error('Database transaction error:', rpcError.message);
+        alert(`Failed to record transaction in database:\n${rpcError.message}`);
+        return;
+      }
+
+      if (data) {
+        serverOrderId = data.order_id;
+        serverOrderNumber = data.order_number;
+      }
+    } catch (err: any) {
+      console.error('Network or database exception submitting sale:', err);
+      alert(`Network error recording sale:\n${err?.message || 'Check connection'}`);
+      return;
+    }
+
     const cust = customers.find((c) => c.id === payload.customerId);
-    const orderNum = `ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(
+    const orderNum = serverOrderNumber || `ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(
       1000 + Math.random() * 9000
     )}`;
 
@@ -335,7 +429,7 @@ export default function OrdersPage() {
     const balanceDue = Math.max(0, subtotal - paid);
 
     const newOrderRow: SalesOrderRow = {
-      id: `ord-${Date.now()}`,
+      id: serverOrderId || `ord-${Date.now()}`,
       orderNumber: orderNum,
       customerId: payload.customerId,
       customerName: cust?.name || 'Walk-in Customer',
