@@ -35,14 +35,12 @@ import SuperAdminDashboardPage from './pages/admin/SuperAdminDashboardPage';
 import NotFoundPage from './pages/NotFoundPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
-import ImpersonationBanner from './components/layout/ImpersonationBanner';
 import { UserRole } from './types/database';
 
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <ImpersonationBanner />
         <Routes>
           {/* Public customer-facing website */}
           <Route element={<PublicLayout />}>
@@ -60,7 +58,30 @@ function App() {
           {/* Authentication */}
           <Route path="/login" element={<LoginPage />} />
 
-          {/* Authenticated Staff & Admin Management Operations */}
+          {/* Tier 1: Super Administrator Platform Governance Only */}
+          <Route
+            element={
+              <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/admin" element={<SuperAdminDashboardPage />} />
+          </Route>
+
+          {/* Tier 2: Super Admin & Business Owner Administrative Control */}
+          <Route
+            element={
+              <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER]}>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/users" element={<UsersPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+          </Route>
+
+          {/* Tier 3: Operational Depot Staff & Management Operations */}
           <Route
             element={
               <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.MANAGER, UserRole.SALES_STAFF, UserRole.INVENTORY]}>
@@ -68,7 +89,6 @@ function App() {
               </ProtectedRoute>
             }
           >
-            <Route path="/admin" element={<SuperAdminDashboardPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/trends" element={<TrendsPage />} />
             <Route path="/products" element={<ProductsPage />} />
@@ -83,8 +103,6 @@ function App() {
             <Route path="/customers" element={<CustomersPage />} />
             <Route path="/compliance" element={<CompliancePage />} />
             <Route path="/reports" element={<ReportsPage />} />
-            <Route path="/users" element={<UsersPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
           </Route>
 
           <Route path="/unauthorized" element={<UnauthorizedPage />} />

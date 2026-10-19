@@ -37,9 +37,16 @@ export interface Profile {
   role: UserRole;
   displayName: string;
   fullName?: string;
+  email?: string;
+  phone?: string;
   avatarUrl?: string;
   mfaEnabled: boolean;
+  isActive?: boolean;
+  status?: 'active' | 'suspended' | 'deactivated';
+  suspendedAt?: string;
+  suspensionReason?: string;
   createdAt?: string;
+  updatedAt?: string;
 }
 
 /** Category */

@@ -12,6 +12,12 @@ import {
   Sliders,
   RefreshCw,
   Search,
+  History,
+  KeyRound,
+  UserX,
+  UserCheck,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
@@ -24,12 +30,32 @@ interface PlatformMetric {
   subtext: string;
 }
 
+interface AuditLogEntry {
+  id: string;
+  user_id: string | null;
+  action: string;
+  resource_type: string;
+  resource_id: string | null;
+  detail: any;
+  created_at: string;
+  profiles?: {
+    email: string;
+    display_name: string;
+    role: string;
+  } | null;
+}
+
 export default function SuperAdminDashboardPage() {
   const { user } = useAuth();
   const [users, setUsers] = useState<any[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [auditLoading, setAuditLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [auditFilter, setAuditFilter] = useState('all');
   const [actionNotice, setActionNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   const platformMetrics: PlatformMetric[] = [
     {
@@ -79,37 +105,119 @@ export default function SuperAdminDashboardPage() {
         setUsers(data);
       }
     } catch (err) {
-      console.warn('Superadmin user fetch fallback', err);
+      console.warn('Superadmin user fetch error', err);
     } finally {
       setLoading(false);
     }
   };
 
+  const loadAuditLogs = async () => {
+    try {
+      setAuditLoading(true);
+      const { data, error } = await supabase
+        .from('audit_logs')
+        .select('*, profiles:user_id(email, display_name, role)')
+        .order('created_at', { ascending: false })
+        .limit(30);
+
+      if (!error && data) {
+        setAuditLogs(data as AuditLogEntry[]);
+      }
+    } catch (err) {
+      console.warn('Superadmin audit fetch error', err);
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadAllUsers();
+    loadAuditLogs();
   }, []);
 
   const handleRoleOverride = async (profileId: string, newRole: string) => {
     try {
+      setProcessingId(profileId);
       setActionNotice(null);
+
       const { error } = await supabase.rpc('admin_set_user_role', {
         target_profile_id: profileId,
         new_role: newRole,
       });
 
-      if (error) {
-        // Direct fallback
-        const { error: directErr } = await supabase
-          .from('profiles')
-          .update({ role: newRole, updated_at: new Date().toISOString() })
-          .eq('id', profileId);
-        if (directErr) throw directErr;
-      }
+      if (error) throw error;
 
       setUsers((prev) => prev.map((u) => (u.id === profileId ? { ...u, role: newRole } : u)));
-      setActionNotice({ type: 'success', text: `Privilege updated: user reassigned to ${newRole}` });
+      setActionNotice({ type: 'success', text: `Role privilege successfully reassigned to "${newRole}".` });
+      await loadAuditLogs();
     } catch (err: any) {
-      setActionNotice({ type: 'error', text: err?.message || 'Privilege update failed' });
+      setActionNotice({ type: 'error', text: err?.message || 'Privilege update failed.' });
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleToggleStatus = async (targetUser: any) => {
+    const isCurrentlyActive = targetUser.is_active !== false;
+    const newStatus = isCurrentlyActive ? 'suspended' : 'active';
+    const reason = isCurrentlyActive ? 'Super Administrator security intervention' : 'Super Administrator reactivation';
+
+    try {
+      setProcessingId(targetUser.id);
+      setActionNotice(null);
+
+      const { error } = await supabase.rpc('admin_set_user_status', {
+        target_profile_id: targetUser.id,
+        new_status: newStatus,
+        reason: reason,
+      });
+
+      if (error) throw error;
+
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === targetUser.id
+            ? { ...u, status: newStatus, is_active: !isCurrentlyActive, suspension_reason: isCurrentlyActive ? reason : null }
+            : u
+        )
+      );
+
+      setActionNotice({
+        type: 'success',
+        text: `Account for ${targetUser.email || targetUser.display_name} is now ${newStatus}.`,
+      });
+      await loadAuditLogs();
+    } catch (err: any) {
+      setActionNotice({ type: 'error', text: err?.message || 'Failed to update account status.' });
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handlePasswordRecovery = async (targetUser: any) => {
+    if (!targetUser.email) {
+      setActionNotice({ type: 'error', text: 'Target account has no registered email.' });
+      return;
+    }
+
+    try {
+      setProcessingId(targetUser.id);
+      setActionNotice(null);
+
+      const { error } = await supabase.auth.resetPasswordForEmail(targetUser.email, {
+        redirectTo: `${window.location.origin}/login`,
+      });
+
+      if (error) throw error;
+
+      setActionNotice({
+        type: 'success',
+        text: `Password recovery dispatch triggered for ${targetUser.email}.`,
+      });
+    } catch (err: any) {
+      setActionNotice({ type: 'error', text: err?.message || 'Failed to dispatch password recovery email.' });
+    } finally {
+      setProcessingId(null);
     }
   };
 
@@ -120,6 +228,20 @@ export default function SuperAdminDashboardPage() {
       (u.email && u.email.toLowerCase().includes(term)) ||
       (u.role && u.role.toLowerCase().includes(term))
     );
+  });
+
+  const filteredAuditLogs = auditLogs.filter((log) => {
+    if (auditFilter === 'all') return true;
+    if (auditFilter === 'security') {
+      return (
+        log.action.includes('UNAUTHORIZED') ||
+        log.action.includes('VIOLATION') ||
+        log.action.includes('SUSPEND')
+      );
+    }
+    if (auditFilter === 'roles') return log.action.includes('ROLE');
+    if (auditFilter === 'status') return log.action.includes('USER') || log.action.includes('REACTIVATE');
+    return true;
   });
 
   return (
@@ -318,7 +440,7 @@ export default function SuperAdminDashboardPage() {
               Master User Privileges Directory (All Roles)
             </h2>
             <p className="text-xs text-gray-500">
-              Directly override any user's operational role across the entire platform.
+              Govern operational roles, account suspension, and password recovery across the platform.
             </p>
           </div>
 
@@ -329,7 +451,7 @@ export default function SuperAdminDashboardPage() {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search user or role..."
+                placeholder="Search user, email, or role..."
                 className="w-full pl-9 pr-3 py-1.5 bg-gray-50 border border-gray-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-purple-600"
               />
             </div>
@@ -338,7 +460,7 @@ export default function SuperAdminDashboardPage() {
               onClick={loadAllUsers}
               disabled={loading}
               className="p-2 rounded-xl border border-gray-300 hover:bg-gray-100 text-gray-600 transition"
-              title="Refresh"
+              title="Refresh users"
             >
               <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
             </button>
@@ -352,75 +474,246 @@ export default function SuperAdminDashboardPage() {
               <tr>
                 <th className="px-4 py-3">User & Contact</th>
                 <th className="px-4 py-3">Current Privilege</th>
-                <th className="px-4 py-3">Account Scope</th>
+                <th className="px-4 py-3">Account Status</th>
                 <th className="px-4 py-3">Registered Date</th>
-                <th className="px-4 py-3 text-right">Super Admin Override</th>
+                <th className="px-4 py-3 text-right">Super Admin Governance</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredUsers.map((u) => (
-                <tr key={u.id} className="hover:bg-gray-50/70 transition">
-                  <td className="px-4 py-3.5">
-                    <span className="font-bold text-gray-900 block">{u.display_name || 'Anonymous User'}</span>
-                    <span className="text-gray-400 font-mono text-[11px] block">{u.email || 'No email registered'}</span>
-                  </td>
+              {filteredUsers.map((u) => {
+                const isCurrentUser = user?.profile?.id === u.id;
+                const isActive = u.is_active !== false;
+                const isBusy = processingId === u.id;
 
-                  <td className="px-4 py-3.5">
-                    <span
-                      className={`inline-block px-2.5 py-0.5 rounded-full font-bold uppercase text-[10px] border ${
-                        u.role === 'super_admin'
-                          ? 'bg-red-100 text-red-800 border-red-200'
-                          : u.role === 'owner'
-                          ? 'bg-purple-100 text-purple-800 border-purple-200'
-                          : u.role === 'manager'
-                          ? 'bg-blue-100 text-blue-800 border-blue-200'
-                          : u.role === 'public'
-                          ? 'bg-gray-100 text-gray-800 border-gray-200'
-                          : 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                      }`}
-                    >
-                      {u.role === 'public' ? 'Farmer / Customer' : u.role.replace('_', ' ')}
-                    </span>
-                  </td>
+                return (
+                  <tr key={u.id} className="hover:bg-gray-50/70 transition">
+                    <td className="px-4 py-3.5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-gray-900">{u.display_name || 'Anonymous User'}</span>
+                        {isCurrentUser && (
+                          <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.2 rounded-sm font-semibold">
+                            You (Super Admin)
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-gray-400 font-mono text-[11px] block">{u.email || 'No email registered'}</span>
+                    </td>
 
-                  <td className="px-4 py-3.5 text-gray-500">
-                    {u.role === 'super_admin'
-                      ? 'Root Platform Governance'
-                      : u.role === 'owner'
-                      ? 'Business Entity & Enterprise Operations'
-                      : u.role === 'manager'
-                      ? 'Mahama Depot Daily Milling & Stock'
-                      : u.role === 'public'
-                      ? 'Self-Service Feed Customer'
-                      : 'Operational Staff'}
-                  </td>
+                    <td className="px-4 py-3.5">
+                      <span
+                        className={`inline-block px-2.5 py-0.5 rounded-full font-bold uppercase text-[10px] border ${
+                          u.role === 'super_admin'
+                            ? 'bg-red-100 text-red-800 border-red-200'
+                            : u.role === 'owner'
+                            ? 'bg-purple-100 text-purple-800 border-purple-200'
+                            : u.role === 'manager'
+                            ? 'bg-blue-100 text-blue-800 border-blue-200'
+                            : u.role === 'public'
+                            ? 'bg-gray-100 text-gray-800 border-gray-200'
+                            : 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                        }`}
+                      >
+                        {u.role === 'public' ? 'Farmer / Customer' : u.role.replace('_', ' ')}
+                      </span>
+                    </td>
 
-                  <td className="px-4 py-3.5 text-gray-400">
-                    {new Date(u.created_at || '2026-10-18T00:00:00Z').toLocaleDateString('en-GB', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                    })}
-                  </td>
+                    <td className="px-4 py-3.5">
+                      {isActive ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                          <CheckCircle2 size={11} /> Active
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-700 bg-red-50 px-2 py-0.5 rounded-full border border-red-200" title={u.suspension_reason || 'Suspended'}>
+                          <UserX size={11} /> Suspended
+                        </span>
+                      )}
+                    </td>
 
-                  <td className="px-4 py-3.5 text-right">
-                    <select
-                      value={u.role}
-                      onChange={(e) => handleRoleOverride(u.id, e.target.value)}
-                      className="text-xs font-semibold bg-gray-50 border border-gray-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-600"
-                    >
-                      <option value="super_admin">🛡️ Super Admin</option>
-                      <option value="owner">🏢 Business Owner</option>
-                      <option value="manager">📦 Depot Manager</option>
-                      <option value="sales_staff">💼 Sales Staff</option>
-                      <option value="inventory">🚚 Inventory Officer</option>
-                      <option value="public">🌾 Farmer / Customer</option>
-                    </select>
-                  </td>
-                </tr>
-              ))}
+                    <td className="px-4 py-3.5 text-gray-400">
+                      {new Date(u.created_at || '2026-10-18T00:00:00Z').toLocaleDateString('en-GB', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </td>
+
+                    <td className="px-4 py-3.5 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {/* Role Select */}
+                        <select
+                          value={u.role}
+                          disabled={isBusy}
+                          onChange={(e) => handleRoleOverride(u.id, e.target.value)}
+                          className="text-xs font-semibold bg-gray-50 border border-gray-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-600 disabled:opacity-50"
+                        >
+                          <option value="super_admin">🛡️ Super Admin</option>
+                          <option value="owner">🏢 Business Owner</option>
+                          <option value="manager">📦 Depot Manager</option>
+                          <option value="sales_staff">💼 Sales Staff</option>
+                          <option value="inventory">🚚 Inventory Officer</option>
+                          <option value="public">🌾 Farmer / Customer</option>
+                        </select>
+
+                        {/* Suspend / Reactivate */}
+                        {!isCurrentUser && (
+                          <button
+                            onClick={() => handleToggleStatus(u)}
+                            disabled={isBusy}
+                            title={isActive ? 'Suspend User Access' : 'Reactivate User Account'}
+                            className={`p-1.5 rounded-lg border text-xs font-semibold transition flex items-center gap-1 ${
+                              isActive
+                                ? 'border-red-200 text-red-600 hover:bg-red-50'
+                                : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
+                            } disabled:opacity-50`}
+                          >
+                            {isActive ? <UserX size={13} /> : <UserCheck size={13} />}
+                          </button>
+                        )}
+
+                        {/* Password Recovery */}
+                        {u.email && (
+                          <button
+                            onClick={() => handlePasswordRecovery(u)}
+                            disabled={isBusy}
+                            title="Dispatch password recovery email"
+                            className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition disabled:opacity-50"
+                          >
+                            <KeyRound size={13} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* 3. Real-Time Platform Security & Governance Audit Log */}
+      <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-xs space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+              <History className="w-5 h-5 text-indigo-600" />
+              Security & Administrative Audit Log Stream
+            </h2>
+            <p className="text-xs text-gray-500">
+              Immutable trail of authorization events, status changes, and privilege mutations recorded in PostgreSQL.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="flex items-center bg-gray-100 rounded-lg p-0.5 text-xs">
+              {[
+                { id: 'all', label: 'All Events' },
+                { id: 'security', label: 'Security & Warnings' },
+                { id: 'roles', label: 'Role Changes' },
+                { id: 'status', label: 'Suspensions' },
+              ].map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => setAuditFilter(f.id)}
+                  className={`px-2.5 py-1 rounded-md font-semibold transition ${
+                    auditFilter === f.id
+                      ? 'bg-white text-gray-900 shadow-xs'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={loadAuditLogs}
+              disabled={auditLoading}
+              className="p-2 rounded-xl border border-gray-300 hover:bg-gray-100 text-gray-600 transition"
+              title="Refresh audit stream"
+            >
+              <RefreshCw size={15} className={auditLoading ? 'animate-spin' : ''} />
+            </button>
+          </div>
+        </div>
+
+        {/* Audit Log Entries List */}
+        <div className="space-y-2">
+          {auditLoading ? (
+            <div className="py-8 text-center text-gray-400 text-xs">
+              <RefreshCw className="w-5 h-5 animate-spin mx-auto text-indigo-600 mb-2" />
+              Loading real-time audit stream...
+            </div>
+          ) : filteredAuditLogs.length === 0 ? (
+            <div className="py-8 text-center text-gray-400 text-xs">
+              No audit log entries matching selected filter.
+            </div>
+          ) : (
+            filteredAuditLogs.map((log) => {
+              const isExpanded = expandedLogId === log.id;
+              const isAlert =
+                log.action.includes('UNAUTHORIZED') ||
+                log.action.includes('VIOLATION') ||
+                log.action.includes('SUSPEND');
+
+              return (
+                <div
+                  key={log.id}
+                  className={`rounded-2xl border p-3 text-xs transition ${
+                    isAlert
+                      ? 'bg-red-50/40 border-red-200'
+                      : 'bg-gray-50/50 border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        className={`font-mono font-bold px-2 py-0.5 rounded-md uppercase text-[10px] tracking-wide ${
+                          isAlert
+                            ? 'bg-red-100 text-red-800 border border-red-200'
+                            : log.action.includes('ROLE')
+                            ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                            : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                        }`}
+                      >
+                        {log.action}
+                      </span>
+
+                      <span className="font-semibold text-gray-900">
+                        {log.profiles?.display_name || log.profiles?.email || 'Platform System'}
+                      </span>
+                      {log.profiles?.role && (
+                        <span className="text-[10px] font-mono text-gray-500 bg-gray-200/70 px-1.5 py-0.2 rounded-sm">
+                          {log.profiles.role}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <span className="text-gray-400 text-[11px] font-mono">
+                        {new Date(log.created_at).toLocaleString('en-GB')}
+                      </span>
+                      <button
+                        onClick={() => setExpandedLogId(isExpanded ? null : log.id)}
+                        className="p-1 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-200/50"
+                        title="Toggle JSON details"
+                      >
+                        {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {isExpanded && log.detail && (
+                    <div className="mt-3 pt-2 border-t border-gray-200/60">
+                      <pre className="p-3 bg-gray-900 text-emerald-400 rounded-xl text-[11px] font-mono overflow-x-auto">
+                        {JSON.stringify(log.detail, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
     </div>

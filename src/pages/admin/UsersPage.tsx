@@ -13,10 +13,13 @@ import {
   X,
   Loader2,
   RefreshCw,
+  KeyRound,
+  UserX,
+  UserCheck,
+  Filter,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
-
 import type { Profile } from '../../types/database';
 
 interface UserRecord {
@@ -27,56 +30,13 @@ interface UserRecord {
   full_name?: string;
   role: Profile['role'];
   phone?: string;
-  mfa_enabled: boolean;
+  mfa_enabled?: boolean;
+  status: 'active' | 'suspended' | 'deactivated';
+  is_active: boolean;
+  suspended_at?: string | null;
+  suspension_reason?: string | null;
   created_at: string;
 }
-
-const FALLBACK_USERS: UserRecord[] = [
-  {
-    id: 'u-owner-001',
-    auth_user_id: '7d856f09-ec5c-452e-99e9-7b0b7e7907ea',
-    email: 'owner@turashoboye.rw',
-    display_name: 'Aline Mugisha',
-    full_name: 'Aline Mugisha',
-    role: 'owner',
-    phone: '+250 788 111 222',
-    mfa_enabled: true,
-    created_at: '2026-10-17T10:00:00Z',
-  },
-  {
-    id: 'u-manager-001',
-    auth_user_id: '371ffbb5-8305-43cb-86cb-bbcd7bbd50f8',
-    email: 'manager@turashoboye.rw',
-    display_name: 'Vedaste Zirimwabagabo',
-    full_name: 'Vedaste Zirimwabagabo',
-    role: 'manager',
-    phone: '+250 788 333 444',
-    mfa_enabled: true,
-    created_at: '2026-10-17T11:30:00Z',
-  },
-  {
-    id: 'u-customer-001',
-    auth_user_id: '5a5d4fa6-fd18-4fc6-a24b-7e6382cbd500',
-    email: 'farmer@turashoboye.rw',
-    display_name: 'Jean-Paul Habimana',
-    full_name: 'Jean-Paul Habimana',
-    role: 'public',
-    phone: '+250 788 123 456',
-    mfa_enabled: false,
-    created_at: '2026-10-18T08:00:00Z',
-  },
-  {
-    id: 'u-customer-002',
-    auth_user_id: '2e04b390-1bec-41e7-94a4-b42f2258fd11',
-    email: 'farmer.kirehe@gmail.com',
-    display_name: 'Kirehe Demo Farmer',
-    full_name: 'Kirehe Demo Farmer',
-    role: 'public',
-    phone: '+250 785 999 888',
-    mfa_enabled: false,
-    created_at: '2026-10-18T20:03:00Z',
-  },
-];
 
 const ROLE_BADGES: Record<Profile['role'], { label: string; color: string }> = {
   super_admin: { label: 'Super Administrator', color: 'bg-red-100 text-red-800 border-red-200' },
@@ -89,12 +49,16 @@ const ROLE_BADGES: Record<Profile['role'], { label: string; color: string }> = {
 
 export default function UsersPage() {
   const { user } = useAuth();
-  const [users, setUsers] = useState<UserRecord[]>(FALLBACK_USERS);
-  const [loading, setLoading] = useState(false);
+  const [users, setUsers] = useState<UserRecord[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [modalOpen, setModalOpen] = useState(false);
+  const [suspendModalUser, setSuspendModalUser] = useState<UserRecord | null>(null);
+  const [suspensionReason, setSuspensionReason] = useState('');
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   // New user form state
   const [newEmail, setNewEmail] = useState('');
@@ -112,11 +76,25 @@ export default function UsersPage() {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (!error && data && data.length > 0) {
-        setUsers(data as UserRecord[]);
+      if (error) {
+        throw error;
       }
-    } catch (err) {
-      console.warn('Using baseline profiles', err);
+
+      if (data) {
+        setUsers(
+          data.map((p) => ({
+            ...p,
+            status: p.status || (p.is_active === false ? 'suspended' : 'active'),
+            is_active: p.is_active !== undefined ? p.is_active : true,
+          })) as UserRecord[]
+        );
+      }
+    } catch (err: any) {
+      console.error('Error fetching users:', err);
+      setActionMessage({
+        type: 'error',
+        text: err?.message || 'Failed to fetch verified user directory from database.',
+      });
     } finally {
       setLoading(false);
     }
@@ -128,28 +106,148 @@ export default function UsersPage() {
 
   const handleRoleChange = async (targetId: string, updatedRole: Profile['role']) => {
     try {
+      setProcessingId(targetId);
       setActionMessage(null);
-      // Try RPC first, fallback to direct update
+
       const { error: rpcErr } = await supabase.rpc('admin_set_user_role', {
         target_profile_id: targetId,
         new_role: updatedRole,
       });
 
       if (rpcErr) {
-        const { error: updateErr } = await supabase
-          .from('profiles')
-          .update({ role: updatedRole, updated_at: new Date().toISOString() })
-          .eq('id', targetId);
-
-        if (updateErr) throw updateErr;
+        throw rpcErr;
       }
 
       setUsers((prev) =>
         prev.map((u) => (u.id === targetId ? { ...u, role: updatedRole } : u))
       );
-      setActionMessage({ type: 'success', text: 'User role successfully updated in database!' });
+      setActionMessage({
+        type: 'success',
+        text: `Role successfully updated to "${updatedRole}" and recorded in audit log.`,
+      });
     } catch (err: any) {
-      setActionMessage({ type: 'error', text: err?.message || 'Failed to update user role.' });
+      setActionMessage({
+        type: 'error',
+        text: err?.message || 'Failed to update user role.',
+      });
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleToggleStatus = async (userRecord: UserRecord) => {
+    if (userRecord.is_active) {
+      // Open modal to specify suspension reason
+      setSuspendModalUser(userRecord);
+      setSuspensionReason('');
+    } else {
+      // Reactivate directly
+      try {
+        setProcessingId(userRecord.id);
+        setActionMessage(null);
+        const { error } = await supabase.rpc('admin_set_user_status', {
+          target_profile_id: userRecord.id,
+          new_status: 'active',
+          reason: 'Administrative reactivation',
+        });
+
+        if (error) throw error;
+
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.id === userRecord.id
+              ? { ...u, status: 'active', is_active: true, suspended_at: null, suspension_reason: null }
+              : u
+          )
+        );
+        setActionMessage({
+          type: 'success',
+          text: `Account for ${userRecord.email || userRecord.display_name} has been reactivated.`,
+        });
+      } catch (err: any) {
+        setActionMessage({
+          type: 'error',
+          text: err?.message || 'Failed to reactivate account.',
+        });
+      } finally {
+        setProcessingId(null);
+      }
+    }
+  };
+
+  const handleConfirmSuspend = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!suspendModalUser) return;
+
+    try {
+      setProcessingId(suspendModalUser.id);
+      setActionMessage(null);
+
+      const reason = suspensionReason.trim() || 'Administrative suspension';
+      const { error } = await supabase.rpc('admin_set_user_status', {
+        target_profile_id: suspendModalUser.id,
+        new_status: 'suspended',
+        reason: reason,
+      });
+
+      if (error) throw error;
+
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === suspendModalUser.id
+            ? {
+                ...u,
+                status: 'suspended',
+                is_active: false,
+                suspended_at: new Date().toISOString(),
+                suspension_reason: reason,
+              }
+            : u
+        )
+      );
+
+      setActionMessage({
+        type: 'success',
+        text: `Account for ${suspendModalUser.email || suspendModalUser.display_name} has been suspended.`,
+      });
+      setSuspendModalUser(null);
+    } catch (err: any) {
+      setActionMessage({
+        type: 'error',
+        text: err?.message || 'Failed to suspend account.',
+      });
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handlePasswordReset = async (userRecord: UserRecord) => {
+    if (!userRecord.email) {
+      setActionMessage({ type: 'error', text: 'Cannot reset password: User has no registered email.' });
+      return;
+    }
+
+    try {
+      setProcessingId(userRecord.id);
+      setActionMessage(null);
+
+      const { error } = await supabase.auth.resetPasswordForEmail(userRecord.email, {
+        redirectTo: `${window.location.origin}/login`,
+      });
+
+      if (error) throw error;
+
+      setActionMessage({
+        type: 'success',
+        text: `Password recovery instructions dispatched to ${userRecord.email}.`,
+      });
+    } catch (err: any) {
+      setActionMessage({
+        type: 'error',
+        text: err?.message || 'Failed to dispatch password recovery email.',
+      });
+    } finally {
+      setProcessingId(null);
     }
   };
 
@@ -159,8 +257,9 @@ export default function UsersPage() {
     setActionMessage(null);
 
     try {
+      const email = newEmail.trim().toLowerCase();
       const { error: signUpErr } = await supabase.auth.signUp({
-        email: newEmail.trim().toLowerCase(),
+        email: email,
         password: newPassword,
         options: {
           data: {
@@ -175,16 +274,16 @@ export default function UsersPage() {
 
       setActionMessage({
         type: 'success',
-        text: `Account for ${newEmail} successfully provisioned with role ${newRole}!`,
+        text: `Account for ${email} successfully provisioned with role "${newRole}".`,
       });
 
       setModalOpen(false);
       setNewEmail('');
       setNewName('');
       setNewPhone('');
-      fetchUsers();
+      await fetchUsers();
     } catch (err: any) {
-      setActionMessage({ type: 'error', text: err?.message || 'Failed to create user account.' });
+      setActionMessage({ type: 'error', text: err?.message || 'Failed to provision user account.' });
     } finally {
       setSubmitting(false);
     }
@@ -198,7 +297,12 @@ export default function UsersPage() {
       (u.phone && u.phone.includes(term));
 
     const matchesRole = roleFilter === 'all' || u.role === roleFilter;
-    return matchesSearch && matchesRole;
+    const matchesStatus =
+      statusFilter === 'all' ||
+      (statusFilter === 'active' && u.is_active) ||
+      (statusFilter === 'suspended' && !u.is_active);
+
+    return matchesSearch && matchesRole && matchesStatus;
   });
 
   const isOwnerOrSuperAdmin =
@@ -215,7 +319,7 @@ export default function UsersPage() {
             User Access & Account Control
           </h1>
           <p className="mt-1 text-sm text-gray-500">
-            Control registered platform users, assign operational roles, and provision staff or farmer accounts.
+            Control verified platform user accounts, assign operational roles, suspend access, and initiate password recovery.
           </p>
         </div>
 
@@ -224,7 +328,7 @@ export default function UsersPage() {
             onClick={fetchUsers}
             disabled={loading}
             className="p-2.5 rounded-xl border border-gray-300 hover:bg-gray-100 text-gray-600 transition"
-            title="Refresh list"
+            title="Refresh verified user list"
           >
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
@@ -254,14 +358,15 @@ export default function UsersPage() {
         </div>
       )}
 
-      {/* Role Counts Summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      {/* Role & Status Counts Summary */}
+      <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
         {[
-          { label: 'Total Users', count: users.length, color: 'text-gray-900' },
-          { label: 'Admins & Owners', count: users.filter((u) => u.role === 'owner').length, color: 'text-purple-700' },
+          { label: 'Total Verified Users', count: users.length, color: 'text-gray-900' },
+          { label: 'Active Accounts', count: users.filter((u) => u.is_active).length, color: 'text-emerald-700' },
+          { label: 'Suspended Accounts', count: users.filter((u) => !u.is_active).length, color: 'text-red-700' },
+          { label: 'Admins & Owners', count: users.filter((u) => u.role === 'owner' || u.role === 'super_admin').length, color: 'text-purple-700' },
           { label: 'Depot Managers', count: users.filter((u) => u.role === 'manager').length, color: 'text-blue-700' },
-          { label: 'Operations Staff', count: users.filter((u) => u.role === 'sales_staff' || u.role === 'inventory').length, color: 'text-emerald-700' },
-          { label: 'Farmers / Customers', count: users.filter((u) => u.role === 'public').length, color: 'text-amber-700' },
+          { label: 'Operations Staff', count: users.filter((u) => u.role === 'sales_staff' || u.role === 'inventory').length, color: 'text-amber-700' },
         ].map((item, i) => (
           <div key={i} className="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs">
             <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider block">
@@ -275,8 +380,8 @@ export default function UsersPage() {
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs flex flex-col sm:flex-row gap-3 items-center justify-between">
-        <div className="relative w-full sm:w-80">
+      <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs flex flex-col md:flex-row gap-3 items-center justify-between">
+        <div className="relative w-full md:w-80">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
           <input
             type="text"
@@ -287,9 +392,35 @@ export default function UsersPage() {
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          <span className="text-xs font-semibold text-gray-500">Filter Role:</span>
-          {['all', 'owner', 'manager', 'sales_staff', 'inventory', 'public'].map((r) => (
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          <div className="flex items-center gap-1.5 mr-2">
+            <Filter size={14} className="text-gray-400" />
+            <span className="text-xs font-semibold text-gray-500">Filter:</span>
+          </div>
+
+          {/* Status Filter */}
+          <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
+            {[
+              { id: 'all', label: 'All Status' },
+              { id: 'active', label: 'Active' },
+              { id: 'suspended', label: 'Suspended' },
+            ].map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setStatusFilter(s.id)}
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+                  statusFilter === s.id
+                    ? 'bg-white text-gray-900 shadow-xs'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Role Filter */}
+          {['all', 'super_admin', 'owner', 'manager', 'sales_staff', 'inventory', 'public'].map((r) => (
             <button
               key={r}
               onClick={() => setRoleFilter(r)}
@@ -299,7 +430,13 @@ export default function UsersPage() {
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              {r === 'all' ? 'All Roles' : r === 'public' ? 'Farmers' : r.replace('_', ' ')}
+              {r === 'all'
+                ? 'All Roles'
+                : r === 'public'
+                ? 'Farmers'
+                : r === 'super_admin'
+                ? 'Super Admin'
+                : r.replace('_', ' ')}
             </button>
           ))}
         </div>
@@ -314,30 +451,53 @@ export default function UsersPage() {
                 <th className="px-5 py-3.5">User Identity</th>
                 <th className="px-5 py-3.5">Contact Details</th>
                 <th className="px-5 py-3.5">Assigned Role</th>
-                <th className="px-5 py-3.5">Security & MFA</th>
+                <th className="px-5 py-3.5">Account Status</th>
                 <th className="px-5 py-3.5">Registered On</th>
-                {isOwnerOrSuperAdmin && <th className="px-5 py-3.5 text-right">Role Control</th>}
+                {isOwnerOrSuperAdmin && <th className="px-5 py-3.5 text-right">Administrative Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredUsers.length === 0 ? (
+              {loading ? (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-gray-400">
-                    No users matching criteria.
+                    <Loader2 className="w-6 h-6 animate-spin mx-auto text-[#2E7D32] mb-2" />
+                    Loading verified user directory...
+                  </td>
+                </tr>
+              ) : filteredUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-gray-400">
+                    No verified platform users matching criteria.
                   </td>
                 </tr>
               ) : (
                 filteredUsers.map((u) => {
                   const badge = ROLE_BADGES[u.role] || ROLE_BADGES.public;
+                  const isCurrentUser = user?.profile?.id === u.id;
+                  const isBusy = processingId === u.id;
+
                   return (
                     <tr key={u.id} className="hover:bg-gray-50/80 transition-colors">
                       <td className="px-5 py-4 font-semibold text-gray-900">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-emerald-100 text-[#2E7D32] font-bold flex items-center justify-center shrink-0 text-sm">
+                          <div
+                            className={`w-10 h-10 rounded-full font-bold flex items-center justify-center shrink-0 text-sm ${
+                              u.is_active
+                                ? 'bg-emerald-100 text-[#2E7D32]'
+                                : 'bg-red-100 text-red-700'
+                            }`}
+                          >
                             {(u.display_name || u.email || 'U').charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <span className="block text-gray-900">{u.display_name || 'Anonymous User'}</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="block text-gray-900">{u.display_name || 'Anonymous User'}</span>
+                              {isCurrentUser && (
+                                <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-sm font-semibold">
+                                  You
+                                </span>
+                              )}
+                            </div>
                             <span className="block text-xs font-normal text-gray-400 font-mono">
                               {u.email || 'No email registered'}
                             </span>
@@ -374,14 +534,21 @@ export default function UsersPage() {
                       </td>
 
                       <td className="px-5 py-4">
-                        {u.mfa_enabled ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100">
-                            <CheckCircle2 size={12} /> MFA Enabled
+                        {u.is_active ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                            <CheckCircle2 size={12} /> Active
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-xs text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full border border-gray-200">
-                            Standard
-                          </span>
+                          <div className="space-y-0.5">
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-700 bg-red-50 px-2.5 py-1 rounded-full border border-red-200">
+                              <UserX size={12} /> Suspended
+                            </span>
+                            {u.suspension_reason && (
+                              <span className="block text-[11px] text-gray-400 truncate max-w-[150px]" title={u.suspension_reason}>
+                                {u.suspension_reason}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </td>
 
@@ -398,18 +565,50 @@ export default function UsersPage() {
 
                       {isOwnerOrSuperAdmin && (
                         <td className="px-5 py-4 text-right">
-                          <select
-                            value={u.role}
-                            onChange={(e) => handleRoleChange(u.id, e.target.value as Profile['role'])}
-                            className="text-xs font-semibold bg-gray-50 border border-gray-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#2E7D32]"
-                          >
-                            {isSuperAdmin && <option value="super_admin">Super Administrator</option>}
-                            <option value="owner">Admin / Owner</option>
-                            <option value="manager">Depot Manager</option>
-                            <option value="sales_staff">Sales Staff</option>
-                            <option value="inventory">Inventory Officer</option>
-                            <option value="public">Farmer / Customer</option>
-                          </select>
+                          <div className="flex items-center justify-end gap-2">
+                            {/* Role Select */}
+                            <select
+                              value={u.role}
+                              disabled={isBusy || (!isSuperAdmin && u.role === 'super_admin')}
+                              onChange={(e) => handleRoleChange(u.id, e.target.value as Profile['role'])}
+                              className="text-xs font-semibold bg-gray-50 border border-gray-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#2E7D32] disabled:opacity-50"
+                            >
+                              {isSuperAdmin && <option value="super_admin">Super Admin</option>}
+                              <option value="owner">Admin / Owner</option>
+                              <option value="manager">Depot Manager</option>
+                              <option value="sales_staff">Sales Staff</option>
+                              <option value="inventory">Inventory Officer</option>
+                              <option value="public">Farmer / Customer</option>
+                            </select>
+
+                            {/* Suspend / Reactivate Button */}
+                            {!isCurrentUser && (isSuperAdmin || (u.role !== 'owner' && u.role !== 'super_admin')) && (
+                              <button
+                                onClick={() => handleToggleStatus(u)}
+                                disabled={isBusy}
+                                title={u.is_active ? 'Suspend account' : 'Reactivate account'}
+                                className={`p-1.5 rounded-lg border text-xs font-semibold transition flex items-center gap-1 ${
+                                  u.is_active
+                                    ? 'border-red-200 text-red-600 hover:bg-red-50'
+                                    : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
+                                } disabled:opacity-50`}
+                              >
+                                {u.is_active ? <UserX size={14} /> : <UserCheck size={14} />}
+                              </button>
+                            )}
+
+                            {/* Password Recovery Button */}
+                            {u.email && (
+                              <button
+                                onClick={() => handlePasswordReset(u)}
+                                disabled={isBusy}
+                                title="Send password reset email"
+                                className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition disabled:opacity-50"
+                              >
+                                <KeyRound size={14} />
+                              </button>
+                            )}
+                          </div>
                         </td>
                       )}
                     </tr>
@@ -420,6 +619,76 @@ export default function UsersPage() {
           </table>
         </div>
       </div>
+
+      {/* Account Suspension Reason Modal */}
+      {suspendModalUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl max-w-md w-full border border-gray-200 shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center">
+                  <UserX size={18} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-gray-900">Suspend User Account</h3>
+                  <p className="text-xs text-gray-500">Revoke system access and database privileges</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSuspendModalUser(null)}
+                className="p-1 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmSuspend} className="p-6 space-y-4">
+              <div className="p-3.5 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900">
+                <p className="font-semibold mb-1">
+                  Target Account: {suspendModalUser.display_name} ({suspendModalUser.email})
+                </p>
+                <p className="text-amber-800">
+                  Suspending this account immediately blocks all database RLS permissions, session operations, and operational access across the platform.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Reason for Suspension *
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={suspensionReason}
+                  onChange={(e) => setSuspensionReason(e.target.value)}
+                  placeholder="e.g. Account security audit, role change, departure, or suspicious activity..."
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-600"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSuspendModalUser(null)}
+                  className="px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-100 rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={processingId === suspendModalUser.id}
+                  className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-xs disabled:opacity-50"
+                >
+                  {processingId === suspendModalUser.id ? (
+                    <Loader2 className="animate-spin w-3.5 h-3.5" />
+                  ) : null}
+                  Confirm Account Suspension
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Provision New User Modal */}
       {modalOpen && (

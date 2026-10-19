@@ -166,7 +166,7 @@ const INITIAL_CUSTOMER_ORDERS: CustomerOrder[] = [
 ];
 
 export default function CustomerPortalPage() {
-  const { user, isImpersonating } = useAuth();
+  const { user } = useAuth();
   const [orders, setOrders] = useState<CustomerOrder[]>(INITIAL_CUSTOMER_ORDERS);
   const [selectedReceipt, setSelectedReceipt] = useState<PrintableOrder | null>(null);
 
@@ -183,9 +183,9 @@ export default function CustomerPortalPage() {
     feedType === 'broiler' ? (birdCount * 4.5) / 50 : (birdCount * 0.12 * 30) / 50
   );
 
-  const isSuperAdminReal = user?.profile?.role === 'super_admin' && !isImpersonating;
-  const isOwnerReal = user?.profile?.role === 'owner' && !isImpersonating;
-  const isManagerReal = user?.profile?.role === 'manager' && !isImpersonating;
+  const isSuperAdminReal = user?.profile?.role === 'super_admin';
+  const isOwnerReal = user?.profile?.role === 'owner';
+  const isManagerReal = user?.profile?.role === 'manager';
 
   const customerName =
     user?.profile?.displayName ||

@@ -30,3 +30,6 @@ dist-ssr
 
 # Supabase CLI temp files
 supabase/.temp/
+
+# Test screenshots
+tests/screenshots/

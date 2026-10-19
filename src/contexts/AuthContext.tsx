@@ -35,11 +35,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           id: raw.id,
           authUserId: raw.auth_user_id || raw.authUserId,
           role: raw.role,
+          email: raw.email,
           displayName: raw.display_name || raw.displayName || 'User',
           fullName: raw.full_name || raw.fullName,
           phone: raw.phone,
           avatarUrl: raw.avatar_url || raw.avatarUrl,
           mfaEnabled: Boolean(raw.mfa_enabled || raw.mfaEnabled),
+          isActive: raw.is_active ?? true,
+          status: raw.status ?? 'active',
+          suspendedAt: raw.suspended_at,
+          suspensionReason: raw.suspension_reason,
           createdAt: raw.created_at || raw.createdAt,
           updatedAt: raw.updated_at || raw.updatedAt,
         } as Profile;
@@ -63,11 +68,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         id: raw.id,
         authUserId: raw.auth_user_id || raw.authUserId,
         role: raw.role,
+        email: raw.email,
         displayName: raw.display_name || raw.displayName || 'User',
         fullName: raw.full_name || raw.fullName,
         phone: raw.phone,
         avatarUrl: raw.avatar_url || raw.avatarUrl,
         mfaEnabled: Boolean(raw.mfa_enabled || raw.mfaEnabled),
+        isActive: raw.is_active ?? true,
+        status: raw.status ?? 'active',
+        suspendedAt: raw.suspended_at,
+        suspensionReason: raw.suspension_reason,
         createdAt: raw.created_at || raw.createdAt,
         updatedAt: raw.updated_at || raw.updatedAt,
       } as Profile;
@@ -81,7 +91,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const profile = await fetchAuthoritativeProfile(rawUser.id);
 
     // Profile role must come from PostgreSQL. If missing, default to public with no staff privileges.
-    const trustedRole: Profile['role'] = profile?.role ?? 'public';
+    // If account is suspended, fail closed by stripping staff privileges.
+    const isSuspended = profile?.isActive === false || profile?.status === 'suspended';
+    const trustedRole: Profile['role'] = isSuspended ? 'public' : (profile?.role ?? 'public');
     const trustedDisplayName = profile?.displayName || profile?.fullName || rawUser.email?.split('@')[0] || 'User';
 
     const trustedProfile: Profile = profile ?? {
@@ -90,7 +102,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       role: trustedRole,
       displayName: trustedDisplayName,
       mfaEnabled: false,
+      isActive: true,
+      status: 'active',
     };
+
+    if (isSuspended) {
+      trustedProfile.role = 'public';
+      setError(
+        profile?.suspensionReason
+          ? `Your account has been suspended: ${profile.suspensionReason}`
+          : 'Your account has been suspended by the platform administrator.'
+      );
+    }
 
     const mfaEnabled = Boolean(rawUser.factors && rawUser.factors.length > 0) || Boolean(trustedProfile.mfaEnabled);
 
@@ -238,8 +261,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const value: AuthContextProps = {
     user,
-    realUser: user,
-    isImpersonating: false, // Universal impersonation disabled for security
     session,
     loading,
     error,
