@@ -265,9 +265,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Inactivity timeout (30 minutes)
   const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000;
   const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastActivityTimestampRef = useRef<number>(0);
 
-  // Reset timer on user activity
+  // Reset timer on user activity (throttled to avoid churn during rapid mouse movement)
   const resetInactivityTimer = useCallback(() => {
+    const now = Date.now();
+    // Throttle resetting to once every 10 seconds during continuous movement
+    if (inactivityTimerRef.current && now - lastActivityTimestampRef.current < 10000) {
+      return;
+    }
+    lastActivityTimestampRef.current = now;
+
     if (inactivityTimerRef.current) {
       clearTimeout(inactivityTimerRef.current);
     }

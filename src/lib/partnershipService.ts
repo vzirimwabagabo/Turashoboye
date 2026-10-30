@@ -114,14 +114,24 @@ export async function submitPartnershipInquiry(data: {
   partnership_type: string;
   message: string;
 }): Promise<{ success: boolean; id: string; error?: string }> {
+  // Input sanitization & size bounding
+  const sanitizedOrg = data.organization_name.trim().slice(0, 150);
+  const sanitizedContact = data.contact_name.trim().slice(0, 100);
+  const sanitizedPhone = data.phone.trim().replace(/[^\d+()\s-]/g, '').slice(0, 30);
+  const sanitizedEmail = data.email?.trim().slice(0, 100);
+  const sanitizedType = (Object.keys(PARTNERSHIP_TYPES).includes(data.partnership_type)
+    ? data.partnership_type
+    : 'other') as PartnershipInquiry['partnership_type'];
+  const sanitizedMessage = data.message.trim().slice(0, 4000);
+
   const newInquiry: PartnershipInquiry = {
     id: crypto.randomUUID(),
-    organization_name: data.organization_name.trim(),
-    contact_name: data.contact_name.trim(),
-    email: data.email?.trim() || undefined,
-    phone: data.phone.trim(),
-    partnership_type: (data.partnership_type || 'other') as any,
-    message: data.message.trim(),
+    organization_name: sanitizedOrg,
+    contact_name: sanitizedContact,
+    email: sanitizedEmail || undefined,
+    phone: sanitizedPhone,
+    partnership_type: sanitizedType,
+    message: sanitizedMessage,
     status: 'new',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
