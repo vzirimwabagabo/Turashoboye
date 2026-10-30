@@ -67,9 +67,10 @@ function App() {
             }
           >
             <Route path="/admin" element={<SuperAdminDashboardPage />} />
+            <Route path="/users" element={<UsersPage />} />
           </Route>
 
-          {/* Tier 2: Super Admin & Business Owner Administrative Control */}
+          {/* Tier 2: Business Owner & Executive Settings Control */}
           <Route
             element={
               <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER]}>
@@ -77,7 +78,6 @@ function App() {
               </ProtectedRoute>
             }
           >
-            <Route path="/users" element={<UsersPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
 

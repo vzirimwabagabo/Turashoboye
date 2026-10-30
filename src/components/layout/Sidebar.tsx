@@ -19,8 +19,6 @@ import {
   BarChart2,
   Settings,
   TrendingUp,
-  UserCheck,
-  ShieldAlert,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { UserRole } from "../../types/database";
@@ -31,7 +29,6 @@ interface SidebarProps {
 }
 
 const getNavItems = (role: UserRole) => [
-  { to: "/admin", label: "Super Admin Console", icon: ShieldAlert, roles: [UserRole.SUPER_ADMIN] },
   {
     to: "/dashboard",
     label:
@@ -55,7 +52,6 @@ const getNavItems = (role: UserRole) => [
   { to: "/customers", label: "Customers", icon: Users, roles: [UserRole.SALES_STAFF, UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
   { to: "/compliance", label: "Compliance & RSB", icon: Shield, roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
   { to: "/reports", label: "Reports & P&L", icon: BarChart2, roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
-  { to: "/users", label: "User Control", icon: UserCheck, roles: [UserRole.OWNER, UserRole.SUPER_ADMIN] },
   { to: "/settings", label: "Settings", icon: Settings, roles: [UserRole.OWNER, UserRole.SUPER_ADMIN] },
 ];
 

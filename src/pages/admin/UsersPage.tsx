@@ -305,8 +305,6 @@ export default function UsersPage() {
     return matchesSearch && matchesRole && matchesStatus;
   });
 
-  const isOwnerOrSuperAdmin =
-    user?.profile?.role === 'owner' || user?.profile?.role === 'super_admin';
   const isSuperAdmin = user?.profile?.role === 'super_admin';
 
   return (
@@ -333,7 +331,7 @@ export default function UsersPage() {
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
 
-          {isOwnerOrSuperAdmin && (
+          {isSuperAdmin && (
             <button
               onClick={() => setModalOpen(true)}
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#2E7D32] hover:bg-[#256b29] text-white text-sm font-semibold shadow-xs transition"
@@ -453,7 +451,7 @@ export default function UsersPage() {
                 <th className="px-5 py-3.5">Assigned Role</th>
                 <th className="px-5 py-3.5">Account Status</th>
                 <th className="px-5 py-3.5">Registered On</th>
-                {isOwnerOrSuperAdmin && <th className="px-5 py-3.5 text-right">Administrative Actions</th>}
+                {isSuperAdmin && <th className="px-5 py-3.5 text-right">Administrative Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -563,13 +561,13 @@ export default function UsersPage() {
                         </div>
                       </td>
 
-                      {isOwnerOrSuperAdmin && (
+                      {isSuperAdmin && (
                         <td className="px-5 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
                             {/* Role Select */}
                             <select
                               value={u.role}
-                              disabled={isBusy || (!isSuperAdmin && u.role === 'super_admin')}
+                              disabled={isBusy || u.role === 'super_admin'}
                               onChange={(e) => handleRoleChange(u.id, e.target.value as Profile['role'])}
                               className="text-xs font-semibold bg-gray-50 border border-gray-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#2E7D32] disabled:opacity-50"
                             >

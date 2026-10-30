@@ -297,17 +297,17 @@ export default function OwnerDashboardView() {
             </div>
           </div>
 
-          {/* Super Admin Guardrails Notice */}
+          {/* Platform Governance Guardrails Notice */}
           <div className="bg-purple-50/60 rounded-3xl border border-purple-200 p-6 shadow-xs space-y-3 text-xs">
             <div className="flex items-center gap-2 text-purple-900 font-bold">
               <ShieldCheck size={16} />
-              <span>Super Admin Platform Governance Guardrails</span>
+              <span>Platform Governance Guardrails</span>
             </div>
             <p className="text-purple-800">
-              Your business operations are protected by platform-level limits established by the Super Administrator:
+              Your business operations are protected by platform-level operating limits:
             </p>
             <ul className="space-y-1.5 text-purple-900 list-disc list-inside font-medium">
-              <li>Max discretionary customer discount: <span className="font-bold">10%</span> (Overridden only by Super Admin)</li>
+              <li>Max discretionary customer discount: <span className="font-bold">10%</span> (Platform limit)</li>
               <li>Single inventory adjustment ceiling: <span className="font-bold">500 kg</span> per incident</li>
               <li>Dual-signoff enabled for feed formula modifications</li>
             </ul>

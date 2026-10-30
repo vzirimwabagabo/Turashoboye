@@ -59,15 +59,6 @@ export default function PublicNavbar() {
                 {link.label}
               </NavLink>
             ))}
-            {user?.profile?.role === 'super_admin' && (
-              <NavLink
-                to="/admin"
-                className="text-xs font-black uppercase tracking-wider text-red-700 hover:text-red-900 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-xl border border-red-200 transition flex items-center gap-1.5"
-              >
-                <ShieldCheck size={14} className="text-red-700" />
-                Super Admin Console
-              </NavLink>
-            )}
             {user?.profile?.role === 'public' && (
               <NavLink
                 to="/portal"
@@ -96,12 +87,12 @@ export default function PublicNavbar() {
               <div className="flex items-center gap-2 border-l border-gray-200 pl-3">
                 {user.profile?.role === 'super_admin' ? (
                   <Link
-                    to="/admin"
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-red-900 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-lg transition"
-                    title="Super Administrator Console"
+                    to="/dashboard"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-800 hover:text-[#2E7D32] px-2 py-1 rounded-md hover:bg-gray-50"
+                    title="Dashboard"
                   >
-                    <ShieldCheck size={14} className="text-red-700" />
-                    <span>Super Admin</span>
+                    <ShieldCheck size={14} className="text-gray-500" />
+                    <span>Dashboard</span>
                   </Link>
                 ) : user.profile?.role === 'owner' ? (
                   <Link
@@ -128,7 +119,7 @@ export default function PublicNavbar() {
                     title="Staff Management Workspace"
                   >
                     <ShieldCheck size={14} className="text-[#2E7D32]" />
-                    <span>Staff Ops</span>
+                    <span>Workspace</span>
                   </Link>
                 ) : (
                   <Link
@@ -161,19 +152,12 @@ export default function PublicNavbar() {
           {/* Mobile hamburger button */}
           <div className="flex items-center gap-2 md:hidden">
             {user ? (
-              user.profile?.role === 'super_admin' ? (
-                <Link
-                  to="/admin"
-                  className="text-xs font-bold text-red-900 px-2.5 py-1.5 rounded-md bg-red-50 border border-red-200"
-                >
-                  Admin
-                </Link>
-              ) : user.profile?.role && user.profile.role !== 'public' ? (
+              user.profile?.role && user.profile.role !== 'public' ? (
                 <Link
                   to="/dashboard"
                   className="text-xs font-bold text-emerald-900 px-2.5 py-1.5 rounded-md bg-emerald-50 border border-emerald-200"
                 >
-                  Staff Ops
+                  Workspace
                 </Link>
               ) : (
                 <Link

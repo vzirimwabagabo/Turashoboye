@@ -75,14 +75,7 @@ export default function LoginForm() {
         <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">
           Select Test Persona:
         </span>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-          <button
-            type="button"
-            onClick={() => selectPersona('superadmin@turashoboye.rw')}
-            className="px-2 py-1.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-800 text-[11px] font-bold transition text-center"
-          >
-            🛡️ Super Admin
-          </button>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
           <button
             type="button"
             onClick={() => selectPersona('owner@turashoboye.rw')}

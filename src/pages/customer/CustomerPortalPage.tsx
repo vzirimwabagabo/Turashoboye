@@ -254,31 +254,6 @@ export default function CustomerPortalPage() {
   return (
     <div className="min-h-screen bg-gray-50/50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto space-y-8">
-        {/* Super Admin / Staff Notice if viewing portal directly */}
-        {isSuperAdminReal && (
-          <div className="rounded-3xl bg-gradient-to-r from-red-950 via-slate-900 to-purple-950 text-white p-5 border-2 border-red-500 shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-red-600 text-white flex items-center justify-center shrink-0 shadow-md animate-pulse">
-                <Sparkles size={22} />
-              </div>
-              <div>
-                <span className="font-black text-red-300 text-xs uppercase tracking-wider block">
-                  🛡️ Super Administrator Console Available
-                </span>
-                <p className="text-sm font-bold text-white mt-0.5">
-                  You are currently previewing the Customer / Farmer view. Your master command dashboard with platform graphs, user privileges, and governance controls is at <code className="bg-black/40 px-1.5 py-0.5 rounded text-red-200">/admin</code>.
-                </p>
-              </div>
-            </div>
-            <Link
-              to="/admin"
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-black uppercase tracking-wider shadow-lg transition shrink-0"
-            >
-              Open Super Admin Dashboard →
-            </Link>
-          </div>
-        )}
-
         {(isOwnerReal || isManagerReal) && (
           <div className="rounded-2xl bg-slate-900 text-white p-4 border border-slate-700 shadow-md flex items-center justify-between">
             <div className="text-xs">
