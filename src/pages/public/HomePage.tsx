@@ -14,6 +14,7 @@ import {
   Handshake,
 } from 'lucide-react';
 import PartnerWithUsSection from '../../components/public/PartnerWithUsSection';
+import PartnersSection from '../../components/public/PartnersSection';
 
 const CATEGORIES = [
   {
@@ -312,6 +313,9 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Institutional Partners in Mahama */}
+      <PartnersSection />
 
       {/* Partner With Us Interactive Section */}
       <PartnerWithUsSection />

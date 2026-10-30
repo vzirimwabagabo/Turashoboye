@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ShieldCheck, HeartHandshake, Award, Factory, ArrowRight } from 'lucide-react';
+import PartnersSection from '../../components/public/PartnersSection';
 
 export default function AboutPage() {
   return (
@@ -58,6 +59,9 @@ export default function AboutPage() {
           </ul>
         </div>
       </div>
+
+      {/* Institutional Partners in Mahama */}
+      <PartnersSection />
 
       {/* Depot Information Banner */}
       <div className="bg-gray-900 text-white rounded-3xl p-8 sm:p-10 flex flex-col md:flex-row items-center justify-between gap-6">

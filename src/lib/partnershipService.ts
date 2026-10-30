@@ -39,6 +39,17 @@ const SEED_INQUIRIES: PartnershipInquiry[] = [
     notes: 'Owner scheduled initial phone discussion to review distribution margin requirements.',
     created_at: new Date(Date.now() - 3600000 * 42).toISOString(),
   },
+  {
+    id: 'seed-inquiry-003',
+    organization_name: 'Mahama Livelihoods Consortium (UNHCR & MINEMA Partner)',
+    contact_name: 'Eric Ndayisaba',
+    email: 'endayisaba@livelihoods-rw.org',
+    phone: '+250 788 332 901',
+    partnership_type: 'ngo_livelihood',
+    message: 'Procuring balanced poultry feed for 120 refugee and host-community youth livestock keepers under the economic inclusion grant. Inquiring on 25kg packaging delivery and batch certificate verification.',
+    status: 'new',
+    created_at: new Date(Date.now() - 3600000 * 6).toISOString(),
+  },
 ];
 
 function getLocalInquiries(): PartnershipInquiry[] {

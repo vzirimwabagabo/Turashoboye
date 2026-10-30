@@ -108,9 +108,9 @@ export default function PartnerWithUsSection() {
             <div className="w-11 h-11 rounded-xl bg-emerald-50 text-[#2E7D32] flex items-center justify-center font-bold">
               <Users size={22} />
             </div>
-            <h3 className="font-bold text-gray-900 text-base">NGOs & Livelihood Agencies</h3>
+            <h3 className="font-bold text-gray-900 text-base">Humanitarian & Development Agencies</h3>
             <p className="text-xs text-gray-600 leading-relaxed">
-              Proven operational partner for refugee economic inclusion, livestock distribution programs, and vocational feeding workshops in Mahama.
+              Operational partner aligning with MINEMA, UNHCR, GIZ, and WFP livelihoods initiatives, refugee self-reliance, and livestock nutrition projects in Mahama.
             </p>
           </div>
 
