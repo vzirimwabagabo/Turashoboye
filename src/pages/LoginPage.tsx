@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import LoginForm from '../components/auth/LoginForm';
 
 const CURRENT_YEAR = 2026;
@@ -11,16 +13,26 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#2E7D32]/10 via-white to-[#A5D6A7]/20 px-4 py-8">
       <div className="w-full max-w-md">
+        {/* Back navigation */}
+        <div className="mb-4">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-[#2E7D32] transition"
+          >
+            <ArrowLeft size={14} /> Back to Turashoboye Home
+          </Link>
+        </div>
+
         {/* Brand header */}
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#2E7D32] text-xl font-bold text-white shadow-lg">
+        <div className="mb-6 text-center">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#2E7D32] text-xl font-bold text-white shadow-lg">
             TF
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-gray-900">
             Turashoboye Feeds
           </h1>
-          <p className="mt-2 text-sm text-gray-500">
-            Animal Feed Production Management
+          <p className="mt-1 text-sm text-gray-500">
+            Animal Feed Production & Enterprise Portal
           </p>
         </div>
 
@@ -37,3 +49,4 @@ export default function LoginPage() {
     </div>
   );
 }
+

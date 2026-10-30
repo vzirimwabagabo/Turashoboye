@@ -1,16 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { Loader2, UserCheck, LogIn } from 'lucide-react';
 import { UserRole } from '../../types/database';
 
 /**
  * Login and Registration form component.
- * Allows staff/managers to sign in or create an initial account.
+ * Allows staff/managers/farmers to sign in or create an account.
  */
 export default function LoginForm() {
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [isSignUp, setIsSignUp] = useState(searchParams.get('tab') === 'register');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -20,6 +21,14 @@ export default function LoginForm() {
 
   const { signIn, signUp, error, loading } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (searchParams.get('tab') === 'register') {
+      setIsSignUp(true);
+    } else if (searchParams.get('tab') === 'login') {
+      setIsSignUp(false);
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -106,6 +115,7 @@ export default function LoginForm() {
           type="button"
           onClick={() => {
             setIsSignUp(false);
+            setSearchParams({ tab: 'login' });
             setSuccessMessage(null);
           }}
           className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-md transition ${
@@ -121,6 +131,7 @@ export default function LoginForm() {
           type="button"
           onClick={() => {
             setIsSignUp(true);
+            setSearchParams({ tab: 'register' });
             setSuccessMessage(null);
           }}
           className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-md transition ${

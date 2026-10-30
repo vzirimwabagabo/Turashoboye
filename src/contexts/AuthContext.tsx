@@ -4,7 +4,7 @@
  * Uses Supabase auth listeners and server-side RPC to maintain authoritative profile data.
  * Client-side role elevation, password backdoor bypasses, and unverified impersonation are strictly disabled.
  */
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import type { ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
@@ -106,6 +106,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       status: 'active',
     };
 
+  
+
     if (isSuspended) {
       trustedProfile.role = 'public';
       setError(
@@ -122,6 +124,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       profile: trustedProfile,
       mfaEnabled,
     };
+
+  
   }, [fetchAuthoritativeProfile]);
 
   useEffect(() => {
@@ -160,12 +164,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     };
 
+  
+
     initSession();
 
     return () => {
       isMounted = false;
       listener?.subscription?.unsubscribe();
     };
+
+  
   }, [buildAuthUser]);
 
   /**
@@ -199,6 +207,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(false);
     return { success: false, error: 'Authentication failed. Please verify your credentials.' };
   };
+
+  
 
   /**
    * Register a new customer / farmer account.
@@ -236,6 +246,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { success: true };
   };
 
+  
+
   const signOut = async () => {
     setLoading(true);
     const { error: signOutError } = await supabase.auth.signOut();
@@ -248,6 +260,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(false);
   };
 
+  
+
+  // Inactivity timeout (30 minutes)
+  const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000;
+  const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Reset timer on user activity
+  const resetInactivityTimer = useCallback(() => {
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current);
+    }
+    inactivityTimerRef.current = setTimeout(() => {
+      console.warn('Session expired due to inactivity');
+      signOut();
+    }, INACTIVITY_TIMEOUT_MS);
+  }, [signOut]);
+
+  // Attach global activity listeners when a user is logged in
+  useEffect(() => {
+    if (!user) return;
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'click'];
+    events.forEach((ev) => window.addEventListener(ev, resetInactivityTimer));
+    // Initialise timer
+    resetInactivityTimer();
+    return () => {
+      events.forEach((ev) => window.removeEventListener(ev, resetInactivityTimer));
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+    };
+  }, [user, resetInactivityTimer]);
+
   const resetPassword = async (email: string) => {
     setLoading(true);
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
@@ -259,6 +301,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(false);
   };
 
+  
+
   const value: AuthContextProps = {
     user,
     session,
@@ -269,6 +313,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     signOut,
     resetPassword,
   };
+
+  
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

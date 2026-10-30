@@ -7,12 +7,13 @@ import {
   XCircle,
   FileText,
   Building,
-  Users,
   ShieldCheck,
   AlertCircle,
   PieChart,
+  Handshake,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import PartnershipInquiriesManager from '../inquiries/PartnershipInquiriesManager';
 
 
 interface PendingApproval {
@@ -54,6 +55,7 @@ const INITIAL_APPROVALS: PendingApproval[] = [
 
 export default function OwnerDashboardView() {
   const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<'overview' | 'inquiries'>('overview');
   const [approvals, setApprovals] = useState<PendingApproval[]>(INITIAL_APPROVALS);
   const [approvalNotice, setApprovalNotice] = useState<string | null>(null);
 
@@ -97,25 +99,49 @@ export default function OwnerDashboardView() {
               <FileText size={15} />
               Full Financial P&L
             </Link>
-            <Link
-              to="/users"
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold border border-white/10 transition"
-            >
-              <Users size={15} />
-              Manage Staff & Farmers
-            </Link>
+
           </div>
         </div>
       </div>
 
-      {approvalNotice && (
-        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-sm font-semibold flex items-center justify-between">
-          <span>{approvalNotice}</span>
-          <button onClick={() => setApprovalNotice(null)} className="text-emerald-700 hover:text-emerald-900 text-xs">
-            Dismiss
-          </button>
-        </div>
-      )}
+      {/* Tab Switcher */}
+      <div className="flex border-b border-gray-200 gap-6">
+        <button
+          onClick={() => setActiveTab('overview')}
+          className={`pb-3 px-1 text-sm font-bold border-b-2 transition flex items-center gap-2 ${
+            activeTab === 'overview'
+              ? 'border-purple-600 text-purple-900'
+              : 'border-transparent text-gray-500 hover:text-gray-800'
+          }`}
+        >
+          <Building size={16} />
+          Operations & Expenditure Sign-offs
+        </button>
+        <button
+          onClick={() => setActiveTab('inquiries')}
+          className={`pb-3 px-1 text-sm font-bold border-b-2 transition flex items-center gap-2 ${
+            activeTab === 'inquiries'
+              ? 'border-purple-600 text-purple-900'
+              : 'border-transparent text-gray-500 hover:text-gray-800'
+          }`}
+        >
+          <Handshake size={16} />
+          Partner Inquiries & Growth Leads
+        </button>
+      </div>
+
+      {activeTab === 'inquiries' ? (
+        <PartnershipInquiriesManager currentRole="owner" />
+      ) : (
+        <>
+          {approvalNotice && (
+            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-sm font-semibold flex items-center justify-between">
+              <span>{approvalNotice}</span>
+              <button onClick={() => setApprovalNotice(null)} className="text-emerald-700 hover:text-emerald-900 text-xs">
+                Dismiss
+              </button>
+            </div>
+          )}
 
       {/* Financial KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -314,6 +340,8 @@ export default function OwnerDashboardView() {
           </div>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }

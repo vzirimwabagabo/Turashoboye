@@ -350,3 +350,21 @@ export interface SyncOperation {
   createdAt: string;
   syncedAt?: string;
 }
+
+/** Partnership Inquiries (Public -> Admin/Owner) */
+export interface PartnershipInquiry {
+  id: UUID;
+  organization_name: string;
+  contact_name: string;
+  email?: string;
+  phone: string;
+  partnership_type: 'grain_supply' | 'distribution' | 'ngo_livelihood' | 'investment' | 'veterinary_tech' | 'other';
+  message: string;
+  status: 'new' | 'in_review' | 'contacted' | 'partnered' | 'archived';
+  handled_by?: string;
+  handled_by_role?: 'owner' | 'super_admin';
+  notes?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+

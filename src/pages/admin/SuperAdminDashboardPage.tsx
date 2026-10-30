@@ -18,9 +18,11 @@ import {
   UserCheck,
   ChevronDown,
   ChevronUp,
+  Handshake,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
+import PartnershipInquiriesManager from '../../components/inquiries/PartnershipInquiriesManager';
 
 interface PlatformMetric {
   title: string;
@@ -47,6 +49,7 @@ interface AuditLogEntry {
 
 export default function SuperAdminDashboardPage() {
   const { user } = useAuth();
+  const [activeAdminTab, setActiveAdminTab] = useState<'governance' | 'inquiries'>('governance');
   const [users, setUsers] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -271,18 +274,48 @@ export default function SuperAdminDashboardPage() {
         </div>
       </div>
 
-      {actionNotice && (
-        <div
-          className={`p-4 rounded-xl text-sm font-medium flex items-center gap-2 border ${
-            actionNotice.type === 'success'
-              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-              : 'bg-red-50 text-red-800 border-red-200'
+      {/* Admin Tab Switcher */}
+      <div className="flex border-b border-gray-200 gap-6">
+        <button
+          onClick={() => setActiveAdminTab('governance')}
+          className={`pb-3 px-1 text-sm font-bold border-b-2 transition flex items-center gap-2 ${
+            activeAdminTab === 'governance'
+              ? 'border-red-600 text-gray-900'
+              : 'border-transparent text-gray-500 hover:text-gray-800'
           }`}
         >
-          {actionNotice.type === 'success' ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
-          <span>{actionNotice.text}</span>
-        </div>
-      )}
+          <Lock size={16} className="text-red-600" />
+          Governance, Security & User Accounts
+        </button>
+        <button
+          onClick={() => setActiveAdminTab('inquiries')}
+          className={`pb-3 px-1 text-sm font-bold border-b-2 transition flex items-center gap-2 ${
+            activeAdminTab === 'inquiries'
+              ? 'border-red-600 text-gray-900'
+              : 'border-transparent text-gray-500 hover:text-gray-800'
+          }`}
+        >
+          <Handshake size={16} className="text-[#2E7D32]" />
+          Partnership Inquiries & Leads
+        </button>
+      </div>
+
+      {activeAdminTab === 'inquiries' ? (
+        <PartnershipInquiriesManager currentRole="super_admin" />
+      ) : (
+        <>
+          {actionNotice && (
+            <div
+              className={`p-4 rounded-xl text-sm font-medium flex items-center gap-2 border ${
+                actionNotice.type === 'success'
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : 'bg-red-50 text-red-800 border-red-200'
+              }`}
+            >
+              {actionNotice.type === 'success' ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+              <span>{actionNotice.text}</span>
+            </div>
+          )}
 
       {/* 1. Global Platform Performance Graphs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -716,6 +749,8 @@ export default function SuperAdminDashboardPage() {
           )}
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }
