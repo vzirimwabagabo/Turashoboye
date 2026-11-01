@@ -17,6 +17,7 @@ import {
   UserX,
   UserCheck,
   Filter,
+  Clock,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
@@ -31,7 +32,7 @@ interface UserRecord {
   role: Profile['role'];
   phone?: string;
   mfa_enabled?: boolean;
-  status: 'active' | 'suspended' | 'deactivated';
+  status: 'active' | 'suspended' | 'deactivated' | 'pending';
   is_active: boolean;
   suspended_at?: string | null;
   suspension_reason?: string | null;
@@ -175,6 +176,37 @@ export default function UsersPage() {
     }
   };
 
+  const handleApproveCustomer = async (userRecord: UserRecord) => {
+    try {
+      setProcessingId(userRecord.id);
+      setActionMessage(null);
+      const { error } = await supabase.rpc('admin_set_user_status', {
+        target_profile_id: userRecord.id,
+        new_status: 'active',
+        reason: 'Customer account approved by administrator',
+      });
+      if (error) throw error;
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === userRecord.id
+            ? { ...u, status: 'active', is_active: true, suspended_at: null, suspension_reason: null }
+            : u
+        )
+      );
+      setActionMessage({
+        type: 'success',
+        text: `Customer account for ${userRecord.email || userRecord.display_name} has been approved and activated.`,
+      });
+    } catch (err: any) {
+      setActionMessage({
+        type: 'error',
+        text: err?.message || 'Failed to approve customer account.',
+      });
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   const handleConfirmSuspend = async (e: FormEvent) => {
     e.preventDefault();
     if (!suspendModalUser) return;
@@ -299,8 +331,9 @@ export default function UsersPage() {
     const matchesRole = roleFilter === 'all' || u.role === roleFilter;
     const matchesStatus =
       statusFilter === 'all' ||
-      (statusFilter === 'active' && u.is_active) ||
-      (statusFilter === 'suspended' && !u.is_active);
+      (statusFilter === 'active' && u.is_active && u.status !== 'pending') ||
+      (statusFilter === 'pending' && u.status === 'pending') ||
+      (statusFilter === 'suspended' && !u.is_active && u.status !== 'pending');
 
     return matchesSearch && matchesRole && matchesStatus;
   });
@@ -400,6 +433,7 @@ export default function UsersPage() {
           <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
             {[
               { id: 'all', label: 'All Status' },
+              { id: 'pending', label: '⏳ Pending Approval' },
               { id: 'active', label: 'Active' },
               { id: 'suspended', label: 'Suspended' },
             ].map((s) => (
@@ -532,7 +566,11 @@ export default function UsersPage() {
                       </td>
 
                       <td className="px-5 py-4">
-                        {u.is_active ? (
+                        {u.status === 'pending' ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
+                            <Clock size={12} /> Awaiting Approval
+                          </span>
+                        ) : u.is_active ? (
                           <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
                             <CheckCircle2 size={12} /> Active
                           </span>
@@ -578,6 +616,18 @@ export default function UsersPage() {
                               <option value="inventory">Inventory Officer</option>
                               <option value="public">Farmer / Customer</option>
                             </select>
+
+                            {/* Approve Button — only shown for pending accounts */}
+                            {u.status === 'pending' && !isCurrentUser && (
+                              <button
+                                onClick={() => handleApproveCustomer(u)}
+                                disabled={isBusy}
+                                title="Approve customer account"
+                                className="px-2.5 py-1.5 rounded-lg border border-emerald-400 bg-emerald-50 text-emerald-700 text-xs font-bold hover:bg-emerald-100 transition flex items-center gap-1 disabled:opacity-50"
+                              >
+                                <UserCheck size={14} /> Approve
+                              </button>
+                            )}
 
                             {/* Suspend / Reactivate Button */}
                             {!isCurrentUser && (isSuperAdmin || (u.role !== 'owner' && u.role !== 'super_admin')) && (

@@ -91,9 +91,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const profile = await fetchAuthoritativeProfile(rawUser.id);
 
     // Profile role must come from PostgreSQL. If missing, default to public with no staff privileges.
-    // If account is suspended, fail closed by stripping staff privileges.
-    const isSuspended = profile?.isActive === false || profile?.status === 'suspended';
-    const trustedRole: Profile['role'] = isSuspended ? 'public' : (profile?.role ?? 'public');
+    // If account is pending approval or suspended, fail closed by stripping elevated privileges.
+    const isPending = profile?.status === 'pending';
+    const isSuspended = profile?.status === 'suspended' || (profile?.isActive === false && !isPending);
+    const trustedRole: Profile['role'] = (isSuspended || isPending) ? 'public' : (profile?.role ?? 'public');
     const trustedDisplayName = profile?.displayName || profile?.fullName || rawUser.email?.split('@')[0] || 'User';
 
     const trustedProfile: Profile = profile ?? {
@@ -102,14 +103,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       role: trustedRole,
       displayName: trustedDisplayName,
       mfaEnabled: false,
-      isActive: true,
-      status: 'active',
+      isActive: !isPending && !isSuspended,
+      status: isPending ? 'pending' : isSuspended ? 'suspended' : 'active',
     };
 
-  
-
-    if (isSuspended) {
+    if (isPending) {
       trustedProfile.role = 'public';
+      trustedProfile.status = 'pending';
+      trustedProfile.isActive = false;
+      setError('Your customer account has been registered and is pending administrator verification before active ordering is enabled.');
+    } else if (isSuspended) {
+      trustedProfile.role = 'public';
+      trustedProfile.status = 'suspended';
+      trustedProfile.isActive = false;
       setError(
         profile?.suspensionReason
           ? `Your account has been suspended: ${profile.suspensionReason}`
@@ -217,7 +223,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signUp = async (creds: SignupCredentials) => {
     setLoading(true);
     setError(null);
-    const { email, password, displayName } = creds;
+    const { email, password, displayName, phone } = creds;
 
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: email.trim().toLowerCase(),
@@ -225,7 +231,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       options: {
         data: {
           displayName,
-          // Note: Any role sent in options.data is ignored by the database trigger for security.
+          phone: phone || null,
+          role: 'public',
+          status: 'pending',
+          // Note: Any elevated role sent in options.data is strictly rejected by the database trigger.
         },
       },
     });

@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Search, Filter, Package, AlertCircle } from 'lucide-react';
+import { Search, Filter, Package, AlertCircle, ShoppingBag } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { getOptimizedImageUrl } from '../../lib/cloudinary';
+import OrderPlacementModal from '../../components/sales/OrderPlacementModal';
+import type { FeedOrderTarget } from '../../components/sales/OrderPlacementModal';
 
 interface PublicVariant {
   id: string;
@@ -104,6 +106,7 @@ export default function CataloguePage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || 'all');
   const [selectedAnimal, setSelectedAnimal] = useState('all');
+  const [orderTarget, setOrderTarget] = useState<FeedOrderTarget | null>(null);
 
   useEffect(() => {
     const fetchCatalogue = async () => {
@@ -354,7 +357,7 @@ export default function CataloguePage() {
                     </div>
                   </div>
 
-                  <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between">
+                  <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between gap-2">
                     <div>
                       <span className="text-xs text-gray-500 block">Starting from</span>
                       <span className="text-lg font-extrabold text-[#2E7D32]">
@@ -362,12 +365,37 @@ export default function CataloguePage() {
                       </span>
                     </div>
 
-                    <Link
-                      to={`/catalogue/${product.slug}`}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#2E7D32] text-white text-xs font-medium hover:bg-[#256b29] transition-colors"
-                    >
-                      View Details
-                    </Link>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => {
+                          const firstVariant = product.variants[0];
+                          setOrderTarget({
+                            id: product.id,
+                            name: product.name,
+                            sku: firstVariant?.sku || product.id,
+                            package_size: firstVariant?.package_size || '50kg Bag',
+                            price_rwf: firstVariant?.price_rwf || minPrice || 0,
+                            image_url: product.image_url,
+                            category: product.category_name,
+                            variants: product.variants.map((v) => ({
+                              id: v.id,
+                              sku: v.sku,
+                              package_size: v.package_size,
+                              price_rwf: v.price_rwf,
+                            })),
+                          });
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-[#2E7D32] text-[#2E7D32] text-xs font-bold hover:bg-emerald-50 transition-colors"
+                      >
+                        <ShoppingBag size={13} /> Order
+                      </button>
+                      <Link
+                        to={`/catalogue/${product.slug}`}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#2E7D32] text-white text-xs font-medium hover:bg-[#256b29] transition-colors"
+                      >
+                        View Details
+                      </Link>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -375,6 +403,13 @@ export default function CataloguePage() {
           })}
         </div>
       )}
+
+      {/* Order Placement Modal */}
+      <OrderPlacementModal
+        feed={orderTarget}
+        isOpen={Boolean(orderTarget)}
+        onClose={() => setOrderTarget(null)}
+      />
     </div>
   );
 }

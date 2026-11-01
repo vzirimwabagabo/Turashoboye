@@ -10,12 +10,14 @@ import {
   MapPin,
   TrendingUp,
   Plus,
-  X,
   Sparkles,
+  AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import OrderReceiptModal from '../../components/sales/OrderReceiptModal';
 import type { PrintableOrder } from '../../components/sales/OrderReceiptModal';
+import OrderPlacementModal from '../../components/sales/OrderPlacementModal';
+import type { FeedOrderTarget } from '../../components/sales/OrderPlacementModal';
 
 interface CustomerOrder {
   id: string;
@@ -170,9 +172,8 @@ export default function CustomerPortalPage() {
   const [orders, setOrders] = useState<CustomerOrder[]>(INITIAL_CUSTOMER_ORDERS);
   const [selectedReceipt, setSelectedReceipt] = useState<PrintableOrder | null>(null);
 
-  // Quick Order Modal
-  const [orderModalFeed, setOrderModalFeed] = useState<typeof AVAILABLE_FEEDS[0] | null>(null);
-  const [quantity, setQuantity] = useState(2);
+  // New OrderPlacementModal state
+  const [orderTarget, setOrderTarget] = useState<FeedOrderTarget | null>(null);
   const [orderNotice, setOrderNotice] = useState<string | null>(null);
 
   // Simple feed calculator state for farmers
@@ -186,6 +187,7 @@ export default function CustomerPortalPage() {
   const isSuperAdminReal = user?.profile?.role === 'super_admin';
   const isOwnerReal = user?.profile?.role === 'owner';
   const isManagerReal = user?.profile?.role === 'manager';
+  const isPending = user?.profile?.status === 'pending';
 
   const customerName =
     user?.profile?.displayName ||
@@ -196,59 +198,33 @@ export default function CustomerPortalPage() {
     window.scrollTo(0, 0);
   }, []);
 
-  const handlePlaceOrder = () => {
-    if (!orderModalFeed) return;
-    const totalAmount = orderModalFeed.priceRwf * quantity;
-    const newOrdNum = `ORD-20261019-${String(orders.length + 1).padStart(3, '0')}`;
-    const newOrder: CustomerOrder = {
-      id: `ord-${Date.now()}`,
-      orderNumber: newOrdNum,
-      orderDate: new Date().toISOString(),
-      status: 'confirmed',
-      totalAmountRwf: totalAmount,
-      paidAmountRwf: totalAmount,
-      balanceDueRwf: 0,
-      itemsSummary: `${quantity}x ${orderModalFeed.name} (${orderModalFeed.bagSize})`,
-      printableOrder: {
-        id: `ord-${Date.now()}`,
-        orderNumber: newOrdNum,
-        customerId: user?.id || 'c-new',
-        customerName: customerName,
-        customerPhone: user?.phone || '+250 788 123 456',
-        customerAddress: 'Mahama Camp, Village 4',
-        status: 'confirmed',
-        orderDate: new Date().toISOString(),
-        total: totalAmount,
-        currencyCode: 'RWF',
-        createdAt: new Date().toISOString(),
-        staffName: 'Depot Sales Counter',
-        items: [
-          {
-            productName: orderModalFeed.name,
-            sku: orderModalFeed.tag.toUpperCase(),
-            packageSize: orderModalFeed.bagSize,
-            batchNumber: 'B-20261019-001',
-            quantity: quantity,
-            unitPriceRwf: orderModalFeed.priceRwf,
-            discountRwf: 0,
-            lineTotalRwf: totalAmount,
-          },
-        ],
-        payments: [
-          {
-            method: 'cash',
-            amountRwf: totalAmount,
-            paymentDate: new Date().toISOString().split('T')[0],
-            reference: 'Pickup at Mahama Depot Counter',
-            status: 'confirmed',
-          },
-        ],
-      },
+  const handleOpenOrder = (feed: typeof AVAILABLE_FEEDS[0]) => {
+    const target: FeedOrderTarget = {
+      id: feed.id,
+      name: feed.name,
+      sku: feed.tag.toUpperCase() + '-50KG',
+      package_size: feed.bagSize,
+      price_rwf: feed.priceRwf,
+      image_url: feed.image,
+      category: feed.category,
     };
+    setOrderTarget(target);
+  };
 
-    setOrders([newOrder, ...orders]);
-    setOrderNotice(`🎉 Order ${newOrdNum} placed successfully for ${quantity} bags of ${orderModalFeed.name}!`);
-    setOrderModalFeed(null);
+  const handleOrderCompleted = (order: PrintableOrder) => {
+    const newCustomerOrder: CustomerOrder = {
+      id: order.id,
+      orderNumber: order.orderNumber,
+      orderDate: order.orderDate,
+      status: 'confirmed',
+      totalAmountRwf: order.total,
+      paidAmountRwf: order.total,
+      balanceDueRwf: 0,
+      itemsSummary: order.items.map((i) => `${i.quantity}x ${i.productName}`).join(', '),
+      printableOrder: order,
+    };
+    setOrders((prev) => [newCustomerOrder, ...prev]);
+    setOrderNotice(`🎉 Order ${order.orderNumber} placed successfully!`);
   };
 
   return (
@@ -266,6 +242,31 @@ export default function CustomerPortalPage() {
             >
               Go to Dashboard →
             </Link>
+          </div>
+        )}
+
+        {/* Pending Account Banner */}
+        {isPending && (
+          <div className="rounded-2xl bg-amber-50 border-2 border-amber-400 p-5 shadow-md flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center shrink-0">
+              <AlertTriangle size={24} className="text-amber-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-extrabold text-amber-900">Account Awaiting Admin Approval</h3>
+              <p className="text-xs text-amber-800 mt-0.5 leading-relaxed">
+                Your customer account has been registered successfully and is currently under review by the Turashoboye Feeds team.
+                You will be notified once your account is approved and ordering is enabled.
+                In the meantime, you can browse the full product catalogue.
+              </p>
+            </div>
+            <a
+              href="https://wa.me/250788000000?text=Hello%20Turashoboye%20Feeds,%20I%20just%20registered%20and%20need%20my%20account%20approved."
+              target="_blank"
+              rel="noreferrer"
+              className="shrink-0 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold flex items-center gap-2 transition"
+            >
+              <MessageSquare size={14} /> Contact Admin
+            </a>
           </div>
         )}
 
@@ -394,11 +395,10 @@ export default function CustomerPortalPage() {
                     RWF {feed.priceRwf.toLocaleString()}
                   </span>
                   <button
-                    onClick={() => {
-                      setOrderModalFeed(feed);
-                      setQuantity(2);
-                    }}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#2E7D32] hover:bg-[#256b29] text-white text-xs font-bold shadow-xs transition"
+                    onClick={() => handleOpenOrder(feed)}
+                    disabled={isPending}
+                    title={isPending ? 'Account awaiting approval — ordering not yet enabled' : 'Place order'}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#2E7D32] hover:bg-[#256b29] text-white text-xs font-bold shadow-xs transition disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <Plus size={13} />
                     Order
@@ -551,86 +551,13 @@ export default function CustomerPortalPage() {
         </div>
       </div>
 
-      {/* Place Order Modal */}
-      {orderModalFeed && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl max-w-md w-full border border-gray-200 shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-5 border-b border-gray-100">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-green-50 text-[#2E7D32] flex items-center justify-center">
-                  <ShoppingBag size={18} />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-gray-900">Confirm Feed Order</h3>
-                  <p className="text-xs text-gray-500">Mahama Primary Depot pickup</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setOrderModalFeed(null)}
-                className="p-1 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4 text-xs">
-              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl border border-gray-200">
-                <img
-                  src={orderModalFeed.image}
-                  alt={orderModalFeed.name}
-                  className="w-14 h-14 rounded-xl object-cover"
-                />
-                <div>
-                  <h4 className="font-bold text-sm text-gray-900">{orderModalFeed.name}</h4>
-                  <span className="text-gray-500 block">{orderModalFeed.bagSize}</span>
-                  <span className="font-bold text-[#2E7D32] block">
-                    RWF {orderModalFeed.priceRwf.toLocaleString()} per bag
-                  </span>
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-gray-700 mb-1">Number of Bags</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={quantity}
-                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#2E7D32]"
-                />
-              </div>
-
-              <div className="p-4 bg-green-50 rounded-2xl border border-green-200 flex items-center justify-between">
-                <div>
-                  <span className="text-green-800 font-semibold block">Total Amount to Pay</span>
-                  <span className="text-[11px] text-green-700">Payable via MoMo or Cash at Depot</span>
-                </div>
-                <span className="text-xl font-black text-[#2E7D32]">
-                  RWF {(orderModalFeed.priceRwf * quantity).toLocaleString()}
-                </span>
-              </div>
-
-              <div className="pt-2 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setOrderModalFeed(null)}
-                  className="px-4 py-2 font-semibold text-gray-600 hover:bg-gray-100 rounded-xl"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handlePlaceOrder}
-                  className="px-5 py-2.5 rounded-xl bg-[#2E7D32] hover:bg-[#256b29] text-white font-bold shadow-md transition"
-                >
-                  Place Order Now
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Order Placement Modal */}
+      <OrderPlacementModal
+        feed={orderTarget}
+        isOpen={Boolean(orderTarget)}
+        onClose={() => setOrderTarget(null)}
+        onOrderCompleted={handleOrderCompleted}
+      />
 
       {/* Official Receipt Modal */}
       <OrderReceiptModal

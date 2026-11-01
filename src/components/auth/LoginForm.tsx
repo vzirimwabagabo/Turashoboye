@@ -2,12 +2,15 @@ import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { Loader2, UserCheck, LogIn } from 'lucide-react';
+import { Loader2, UserCheck, LogIn, CheckCircle2 } from 'lucide-react';
 import { UserRole } from '../../types/database';
 
 /**
  * Login and Registration form component.
- * Allows staff/managers/farmers to sign in or create an account.
+ * Self-registration is strictly for new Customers / Farmers (role: 'public').
+ * Staff and managerial accounts (Owner, Manager, Sales Staff) must be provisioned
+ * by Super Administrators via internal management tools.
+ * New customer accounts require administrator approval before ordering is enabled.
  */
 export default function LoginForm() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -15,12 +18,14 @@ export default function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [role, setRole] = useState<UserRole>(UserRole.MANAGER);
+  const [phone, setPhone] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const { signIn, signUp, error, loading } = useAuth();
   const navigate = useNavigate();
+
+  const redirectUrl = searchParams.get('redirect');
 
   useEffect(() => {
     if (searchParams.get('tab') === 'register') {
@@ -36,27 +41,31 @@ export default function LoginForm() {
     setSuccessMessage(null);
 
     if (isSignUp) {
+      // Self-registration is strictly locked to Customer / Farmer (UserRole.PUBLIC)
       const res = await signUp({
         email,
         password,
         displayName: displayName.trim() || email.split('@')[0],
-        role,
+        phone: phone.trim() || undefined,
+        role: UserRole.PUBLIC,
       });
       setSubmitting(false);
       if (res.success) {
-        setSuccessMessage('Account registered successfully! Signing you in...');
+        setSuccessMessage(
+          'Customer account created successfully! Your account is awaiting administrative approval by our Mahama depot staff before feed ordering is enabled.'
+        );
         setTimeout(() => {
-          if (role === UserRole.PUBLIC) {
-            navigate('/portal');
-          } else {
-            navigate('/dashboard');
-          }
-        }, 1200);
+          navigate(redirectUrl || '/portal');
+        }, 2200);
       }
     } else {
       const res = await signIn(email, password);
       setSubmitting(false);
       if (res.success) {
+        if (redirectUrl) {
+          navigate(redirectUrl);
+          return;
+        }
         const clean = email.toLowerCase();
         if (res.role === UserRole.SUPER_ADMIN || clean.includes('superadmin')) {
           navigate('/admin');
@@ -67,7 +76,6 @@ export default function LoginForm() {
         }
       }
     }
-
   };
 
   const selectPersona = (pEmail: string) => {
@@ -115,7 +123,11 @@ export default function LoginForm() {
           type="button"
           onClick={() => {
             setIsSignUp(false);
-            setSearchParams({ tab: 'login' });
+            setSearchParams((prev) => {
+              const next = new URLSearchParams(prev);
+              next.set('tab', 'login');
+              return next;
+            });
             setSuccessMessage(null);
           }}
           className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-md transition ${
@@ -131,7 +143,11 @@ export default function LoginForm() {
           type="button"
           onClick={() => {
             setIsSignUp(true);
-            setSearchParams({ tab: 'register' });
+            setSearchParams((prev) => {
+              const next = new URLSearchParams(prev);
+              next.set('tab', 'register');
+              return next;
+            });
             setSuccessMessage(null);
           }}
           className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-md transition ${
@@ -141,26 +157,53 @@ export default function LoginForm() {
           }`}
         >
           <UserCheck className="h-3.5 w-3.5" />
-          Create Account
+          Register Customer
         </button>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {isSignUp && (
-          <div>
-            <label htmlFor="displayName" className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
-              Full Name / Display Name *
-            </label>
-            <input
-              type="text"
-              id="displayName"
-              required
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="e.g. Jean Habimana"
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-xs focus:outline-none focus:ring-1 focus:ring-[#2E7D32] focus:border-[#2E7D32] sm:text-sm"
-            />
-          </div>
+          <>
+            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 space-y-1">
+              <span className="font-bold flex items-center gap-1">
+                <CheckCircle2 size={13} className="text-[#2E7D32]" />
+                Farmer & Customer Account Registration
+              </span>
+              <p className="text-[11px] text-emerald-800 leading-relaxed">
+                Staff & managerial accounts cannot self-register; they are provisioned internally by administrators. All new customer accounts require admin verification before ordering is enabled.
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="displayName" className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                Full Name / Farm Name *
+              </label>
+              <input
+                type="text"
+                id="displayName"
+                required
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="e.g. Jean-Paul Habimana"
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-xs focus:outline-none focus:ring-1 focus:ring-[#2E7D32] focus:border-[#2E7D32] sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="phone" className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                Phone Number (WhatsApp Preferred) *
+              </label>
+              <input
+                type="tel"
+                id="phone"
+                required
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="e.g. +250 788 000 000"
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-xs focus:outline-none focus:ring-1 focus:ring-[#2E7D32] focus:border-[#2E7D32] sm:text-sm"
+              />
+            </div>
+          </>
         )}
 
         <div>
@@ -173,7 +216,7 @@ export default function LoginForm() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="staff@turashoboye.rw"
+            placeholder={isSignUp ? 'farmer@example.com' : 'user@turashoboye.rw'}
             className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-xs focus:outline-none focus:ring-1 focus:ring-[#2E7D32] focus:border-[#2E7D32] sm:text-sm"
           />
         </div>
@@ -194,25 +237,6 @@ export default function LoginForm() {
           />
         </div>
 
-        {isSignUp && (
-          <div>
-            <label htmlFor="role" className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
-              Operational Role *
-            </label>
-            <select
-              id="role"
-              value={role}
-              onChange={(e) => setRole(e.target.value as UserRole)}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-xs focus:outline-none focus:ring-1 focus:ring-[#2E7D32] focus:border-[#2E7D32] sm:text-sm bg-white"
-            >
-              <option value={UserRole.OWNER}>Business Owner (Full Access)</option>
-              <option value={UserRole.MANAGER}>Depot Manager / QA Supervisor</option>
-              <option value={UserRole.SALES_STAFF}>Sales Staff / Cashier</option>
-              <option value={UserRole.INVENTORY}>Inventory & Warehouse Operator</option>
-            </select>
-          </div>
-        )}
-
         {error && (
           <div className="p-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-md" role="alert">
             {error}
@@ -231,7 +255,7 @@ export default function LoginForm() {
           className="w-full inline-flex justify-center items-center rounded-md border border-transparent bg-[#2E7D32] px-4 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-[#256b29] focus:outline-none focus:ring-2 focus:ring-[#2E7D32] disabled:opacity-50 transition-colors cursor-pointer"
         >
           {submitting ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : null}
-          {isSignUp ? 'Create Staff Account' : 'Sign In to Dashboard'}
+          {isSignUp ? 'Create Customer Account (Pending Approval)' : 'Sign In'}
         </button>
       </form>
     </div>

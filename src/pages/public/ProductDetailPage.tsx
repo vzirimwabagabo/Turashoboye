@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Phone, ShieldCheck, Check, Clock, MapPin, Truck, Package } from 'lucide-react';
+import { ArrowLeft, Phone, ShieldCheck, Check, Clock, MapPin, Truck, Package, ShoppingBag } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { getOptimizedImageUrl } from '../../lib/cloudinary';
+import OrderPlacementModal from '../../components/sales/OrderPlacementModal';
 
 interface DetailProduct {
   id: string;
@@ -108,6 +109,7 @@ export default function ProductDetailPage() {
     (slug && SAMPLE_DETAILS[slug]) || SAMPLE_DETAILS['broiler-starter-mash']
   );
   const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
+  const [orderModalOpen, setOrderModalOpen] = useState(false);
 
   useEffect(() => {
     if (!slug) return;
@@ -299,14 +301,22 @@ export default function ProductDetailPage() {
             {/* Direct Order Actions */}
             <div className="space-y-3 pt-2 border-t border-gray-100">
               <button
-                onClick={handlePhoneOrder}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#2E7D32] text-white font-bold text-sm shadow-sm hover:bg-[#256b29] transition-colors"
+                onClick={() => setOrderModalOpen(true)}
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#2E7D32] text-white font-bold text-sm shadow-md hover:bg-[#256b29] transition-colors cursor-pointer"
               >
-                <Phone size={18} />
-                Order via WhatsApp / Call
+                <ShoppingBag size={18} />
+                Order Feed Online
               </button>
-              <p className="text-xs text-center text-gray-500">
-                Contact staff at +250 780 000 000 to confirm order and collection.
+
+              <button
+                onClick={handlePhoneOrder}
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-[#2E7D32] text-[#2E7D32] hover:bg-emerald-50 font-semibold text-xs transition-colors"
+              >
+                <Phone size={15} />
+                Order via WhatsApp / Call Desk
+              </button>
+              <p className="text-[11px] text-center text-gray-400">
+                Online orders require a registered customer account for batch traceability.
               </p>
             </div>
 
@@ -329,6 +339,21 @@ export default function ProductDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Online Order Modal */}
+      <OrderPlacementModal
+        feed={{
+          id: product.id,
+          name: product.name,
+          sku: currentVariant.sku,
+          package_size: currentVariant.package_size,
+          price_rwf: currentVariant.price_rwf,
+          category: product.category,
+          variants: product.variants,
+        }}
+        isOpen={orderModalOpen}
+        onClose={() => setOrderModalOpen(false)}
+      />
     </div>
   );
 }

@@ -42,7 +42,7 @@ export interface Profile {
   avatarUrl?: string;
   mfaEnabled: boolean;
   isActive?: boolean;
-  status?: 'active' | 'suspended' | 'deactivated';
+  status?: 'active' | 'suspended' | 'deactivated' | 'pending';
   suspendedAt?: string;
   suspensionReason?: string;
   createdAt?: string;

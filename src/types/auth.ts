@@ -34,7 +34,8 @@ export interface LoginCredentials {
 /** Credentials for sign‑up – includes optional metadata for profile */
 export interface SignupCredentials extends LoginCredentials {
   displayName: string;
-  role: UserRole;
+  phone?: string;
+  role?: UserRole;
 }
 
 /** Props for a protected route component */
