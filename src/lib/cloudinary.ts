@@ -10,6 +10,7 @@
 
 const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'turashoboye';
 const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'turashoboye_products';
+const API_KEY = import.meta.env.VITE_CLOUDINARY_API_KEY || '824753227215693';
 
 export interface UploadResult {
   url: string;
@@ -136,6 +137,9 @@ export async function uploadMediaFile(
   const formData = new FormData();
   formData.append('file', file);
   formData.append('upload_preset', UPLOAD_PRESET);
+  if (API_KEY) {
+    formData.append('api_key', API_KEY);
+  }
   formData.append('folder', `turashoboye/${folder}`);
 
   const endpoint = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`;
@@ -147,9 +151,12 @@ export async function uploadMediaFile(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      errorData.error?.message || `Cloudinary upload failed with HTTP status ${response.status}`
-    );
+    const errorMessage =
+      errorData.error?.message ||
+      (response.status === 401
+        ? 'Cloudinary upload unauthorized (401). Please verify the upload preset and API key.'
+        : `Cloudinary upload failed with HTTP status ${response.status}`);
+    throw new Error(errorMessage);
   }
 
   const data = await response.json();
