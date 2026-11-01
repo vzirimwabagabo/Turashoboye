@@ -77,7 +77,7 @@ export default function FormulasPage() {
   const [outputFeed, setOutputFeed] = useState('Broiler Finisher Mash');
   const [expectedQty, setExpectedQty] = useState<number>(1000);
 
-  const isManagement = ['manager', 'owner'].includes(user?.profile?.role || '');
+  const isManagement = ['manager', 'owner', 'super_admin'].includes(user?.profile?.role || '');
 
   const handleApprove = (id: string) => {
     setFormulas((prev) =>

@@ -86,7 +86,7 @@ export default function BatchesPage() {
   const [actualQty, setActualQty] = useState<number>(970);
   const [completing, setCompleting] = useState(false);
 
-  const canManage = ['manager', 'owner'].includes(user?.profile?.role || '');
+  const canManage = ['manager', 'owner', 'super_admin'].includes(user?.profile?.role || '');
 
   // Calculated metrics for completion modal
   const computedLossQty = activeBatch ? Math.max(activeBatch.planned_output_qty - actualQty, 0) : 0;

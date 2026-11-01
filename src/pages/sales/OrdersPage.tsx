@@ -282,7 +282,7 @@ export default function OrdersPage() {
   const [selectedReceiptOrder, setSelectedReceiptOrder] = useState<PrintableOrder | null>(null);
   const [selectedPaymentOrder, setSelectedPaymentOrder] = useState<SalesOrderRow | null>(null);
 
-  const canCreateSale = ['sales_staff', 'manager', 'owner'].includes(user?.profile?.role || '');
+  const canCreateSale = ['sales_staff', 'manager', 'owner', 'super_admin'].includes(user?.profile?.role || '');
 
   // Load from Supabase if online + merge local customer orders
   useEffect(() => {

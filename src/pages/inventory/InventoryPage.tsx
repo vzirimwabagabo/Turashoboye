@@ -90,7 +90,7 @@ export default function InventoryPage() {
   const [selectedVariant, setSelectedVariant] = useState<StockRow | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const canAdjust = ['inventory', 'manager', 'owner'].includes(user?.profile?.role || '');
+  const canAdjust = ['inventory', 'manager', 'owner', 'super_admin'].includes(user?.profile?.role || '');
 
   useEffect(() => {
     const fetchStock = async () => {

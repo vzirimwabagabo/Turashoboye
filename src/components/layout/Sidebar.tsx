@@ -19,6 +19,7 @@ import {
   BarChart2,
   Settings,
   TrendingUp,
+  ShoppingBag,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { UserRole } from "../../types/database";
@@ -30,6 +31,18 @@ interface SidebarProps {
 
 const getNavItems = (role: UserRole) => [
   {
+    to: "/admin",
+    label: "Platform Admin",
+    icon: Shield,
+    roles: [UserRole.SUPER_ADMIN, UserRole.OWNER],
+  },
+  {
+    to: "/users",
+    label: "User Management",
+    icon: Users,
+    roles: [UserRole.SUPER_ADMIN, UserRole.OWNER],
+  },
+  {
     to: "/dashboard",
     label:
       role === UserRole.OWNER
@@ -38,7 +51,7 @@ const getNavItems = (role: UserRole) => [
         ? "Depot Operations"
         : "Operations Dashboard",
     icon: Home,
-    roles: [UserRole.SALES_STAFF, UserRole.INVENTORY, UserRole.MANAGER, UserRole.OWNER],
+    roles: [UserRole.SALES_STAFF, UserRole.INVENTORY, UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN],
   },
   { to: "/trends", label: "Trends & Command", icon: TrendingUp, roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
   { to: "/products", label: "Products & SKUs", icon: Box, roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
@@ -53,6 +66,7 @@ const getNavItems = (role: UserRole) => [
   { to: "/compliance", label: "Compliance & RSB", icon: Shield, roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
   { to: "/reports", label: "Reports & P&L", icon: BarChart2, roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
   { to: "/settings", label: "Settings", icon: Settings, roles: [UserRole.OWNER, UserRole.SUPER_ADMIN] },
+  { to: "/portal", label: "Customer Store View", icon: ShoppingBag, roles: [UserRole.OWNER, UserRole.SUPER_ADMIN] },
 ];
 
 
@@ -97,7 +111,13 @@ export const Sidebar = ({ open, onClose }: SidebarProps) => {
         {/* Nav links */}
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
           {getNavItems(role)
-            .filter((item) => (item.roles as readonly UserRole[]).includes(role))
+            .filter((item) => {
+              // Administrators (Super Admin & Owner) have complete access to all pages and sections
+              if (role === UserRole.SUPER_ADMIN || role === UserRole.OWNER) {
+                return true;
+              }
+              return (item.roles as readonly UserRole[]).includes(role);
+            })
             .map((item) => {
               const Icon = item.icon;
               return (

@@ -20,22 +20,17 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const profile = user?.profile;
 
-  // 1. Super Admin is redirected to the Master Admin Console
-  if (profile?.role === 'super_admin') {
-    return <Navigate to="/admin" replace />;
-  }
-
-  // 2. Customers / Farmers should see their customer portal
+  // 1. Customers / Farmers should see their customer portal
   if (profile?.role === 'public') {
     return <Navigate to="/portal" replace />;
   }
 
-  // 3. Business Owner gets the executive P&L, margins, and approval queue
-  if (profile?.role === 'owner') {
+  // 2. Business Owner or Super Admin gets the executive P&L, margins, and operational overview
+  if (profile?.role === 'owner' || profile?.role === 'super_admin') {
     return <OwnerDashboardView />;
   }
 
-  // 4. Depot / Operations Manager gets live silo gauges, milling batches, and stock
+  // 3. Depot / Operations Manager gets live silo gauges, milling batches, and stock
   if (profile?.role === 'manager') {
     return <DepotManagerDashboardView />;
   }

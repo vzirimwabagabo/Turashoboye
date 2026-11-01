@@ -25,13 +25,17 @@ export const useRequireAuth = (requiredRoles?: UserRole | UserRole[]) => {
         return;
       }
       if (requiredRoles) {
-        const allowed = Array.isArray(requiredRoles) ? requiredRoles : [requiredRoles];
-        if (!allowed.includes(user.profile?.role as UserRole)) {
-          // If a normal customer/public user hits staff routes, redirect them cleanly to customer portal
-          if (user.profile?.role === 'public') {
-            navigate("/portal", { replace: true });
-          } else {
-            navigate("/unauthorized", { replace: true });
+        // Administrators (Super Admin & Business Owner) have universal super-user rights across all routes
+        const isAdmin = user.profile?.role === 'super_admin' || user.profile?.role === 'owner';
+        if (!isAdmin) {
+          const allowed = Array.isArray(requiredRoles) ? requiredRoles : [requiredRoles];
+          if (!allowed.includes(user.profile?.role as UserRole)) {
+            // If a normal customer/public user hits staff routes, redirect them cleanly to customer portal
+            if (user.profile?.role === 'public') {
+              navigate("/portal", { replace: true });
+            } else {
+              navigate("/unauthorized", { replace: true });
+            }
           }
         }
       }

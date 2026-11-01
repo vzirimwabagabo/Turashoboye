@@ -65,7 +65,7 @@ export default function SuppliersPage() {
   const [tinNumber, setTinNumber] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const canManage = ['inventory', 'manager', 'owner'].includes(user?.profile?.role || '');
+  const canManage = ['inventory', 'manager', 'owner', 'super_admin'].includes(user?.profile?.role || '');
 
   useEffect(() => {
     const fetchSuppliers = async () => {

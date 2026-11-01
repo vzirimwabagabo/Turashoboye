@@ -338,7 +338,7 @@ export default function UsersPage() {
     return matchesSearch && matchesRole && matchesStatus;
   });
 
-  const isSuperAdmin = user?.profile?.role === 'super_admin';
+  const isSuperAdmin = user?.profile?.role === 'super_admin' || user?.profile?.role === 'owner';
 
   return (
     <div className="space-y-6">

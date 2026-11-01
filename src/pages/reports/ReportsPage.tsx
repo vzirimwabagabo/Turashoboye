@@ -93,7 +93,7 @@ export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState<'sales' | 'production' | 'inventory'>('sales');
   const [timeRange, setTimeRange] = useState<'30days' | '90days' | 'all'>('30days');
 
-  const canViewReports = ['manager', 'owner'].includes(user?.profile?.role || '');
+  const canViewReports = ['manager', 'owner', 'super_admin'].includes(user?.profile?.role || '');
 
   // Helper to trigger CSV download
   const handleExportCSV = (reportType: string) => {

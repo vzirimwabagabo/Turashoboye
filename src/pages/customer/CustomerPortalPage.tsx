@@ -188,7 +188,7 @@ export default function CustomerPortalPage() {
   const isSuperAdminReal = user?.profile?.role === 'super_admin';
   const isOwnerReal = user?.profile?.role === 'owner';
   const isManagerReal = user?.profile?.role === 'manager';
-  const isPending = user?.profile?.status === 'pending';
+  const isPending = user?.profile?.status === 'pending' && !['super_admin', 'owner', 'manager'].includes(user?.profile?.role || '');
 
   const customerName =
     user?.profile?.displayName ||

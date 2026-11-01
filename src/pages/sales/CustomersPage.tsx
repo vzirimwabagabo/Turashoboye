@@ -95,7 +95,7 @@ export default function CustomersPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const canManage = ['sales_staff', 'manager', 'owner'].includes(user?.profile?.role || '');
+  const canManage = ['sales_staff', 'manager', 'owner', 'super_admin'].includes(user?.profile?.role || '');
 
   useEffect(() => {
     let isCancelled = false;

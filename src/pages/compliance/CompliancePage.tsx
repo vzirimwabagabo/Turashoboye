@@ -132,7 +132,7 @@ export default function CompliancePage() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<RegulatoryItem | null>(null);
 
-  const canEdit = ['manager', 'owner'].includes(user?.profile?.role || '');
+  const canEdit = ['manager', 'owner', 'super_admin'].includes(user?.profile?.role || '');
 
   // Filter records
   const filteredRecords = records.filter((r) => {

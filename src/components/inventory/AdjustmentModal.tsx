@@ -41,7 +41,7 @@ export default function AdjustmentModal({
   const resultantStock = currentPhysical + adjustmentQty;
 
   const isMaterialAdjustment = Math.abs(adjustmentQty) >= THRESHOLD_QTY;
-  const isManager = user?.profile?.role === 'manager' || user?.profile?.role === 'owner';
+  const isManager = ['manager', 'owner', 'super_admin'].includes(user?.profile?.role || '');
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();

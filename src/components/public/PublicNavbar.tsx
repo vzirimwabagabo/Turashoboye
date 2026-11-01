@@ -98,12 +98,12 @@ export default function PublicNavbar() {
               <div className="flex items-center gap-2 border-l border-gray-200 pl-3">
                 {user.profile?.role === 'super_admin' ? (
                   <Link
-                    to="/dashboard"
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-800 hover:text-[#2E7D32] px-2 py-1 rounded-md hover:bg-gray-50"
-                    title="Dashboard"
+                    to="/admin"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-red-900 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-lg transition"
+                    title="Super Admin Governance Console"
                   >
-                    <ShieldCheck size={14} className="text-gray-500" />
-                    <span>Dashboard</span>
+                    <ShieldCheck size={14} className="text-red-700" />
+                    <span>Admin Console</span>
                   </Link>
                 ) : user.profile?.role === 'owner' ? (
                   <Link

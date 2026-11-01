@@ -92,7 +92,7 @@ export default function ProductsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const isManagement = user?.profile?.role === 'manager' || user?.profile?.role === 'owner';
+  const isManagement = ['manager', 'owner', 'super_admin'].includes(user?.profile?.role || '');
 
   useEffect(() => {
     const loadProducts = async () => {

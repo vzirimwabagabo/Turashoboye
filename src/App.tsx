@@ -58,10 +58,10 @@ function App() {
           {/* Authentication */}
           <Route path="/login" element={<LoginPage />} />
 
-          {/* Tier 1: Super Administrator Platform Governance Only */}
+          {/* Tier 1: Platform Governance & User Directory */}
           <Route
             element={
-              <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
+              <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER]}>
                 <AppLayout />
               </ProtectedRoute>
             }

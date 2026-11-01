@@ -79,7 +79,7 @@ export default function PurchaseOrdersPage() {
   const [expiryDate, setExpiryDate] = useState('2027-10-17');
   const [receiving, setReceiving] = useState(false);
 
-  const canManage = ['inventory', 'manager', 'owner'].includes(user?.profile?.role || '');
+  const canManage = ['inventory', 'manager', 'owner', 'super_admin'].includes(user?.profile?.role || '');
 
   const handleCreatePO = (e: FormEvent) => {
     e.preventDefault();
