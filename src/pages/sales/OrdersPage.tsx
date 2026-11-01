@@ -23,6 +23,7 @@ import type {
 import OrderReceiptModal from '../../components/sales/OrderReceiptModal';
 import type { PrintableOrder, PrintableOrderItem } from '../../components/sales/OrderReceiptModal';
 import RecordPaymentModal from '../../components/sales/RecordPaymentModal';
+import { getLocalCustomerOrders } from '../../lib/orderService';
 
 interface SalesOrderRow {
   id: string;
@@ -283,7 +284,7 @@ export default function OrdersPage() {
 
   const canCreateSale = ['sales_staff', 'manager', 'owner'].includes(user?.profile?.role || '');
 
-  // Load from Supabase if online
+  // Load from Supabase if online + merge local customer orders
   useEffect(() => {
     const fetchOnlineOrders = async () => {
       try {
@@ -310,8 +311,31 @@ export default function OrdersPage() {
           `)
           .order('order_date', { ascending: false });
 
+        // Retrieve local customer orders placed via web store
+        const localOrders = getLocalCustomerOrders();
+        const mappedLocal: SalesOrderRow[] = localOrders.map((loc: any) => ({
+          id: loc.id,
+          orderNumber: loc.orderNumber,
+          customerId: loc.printableOrder?.customerId || 'online-cust',
+          customerName: loc.printableOrder?.customerName || 'Online Customer',
+          customerPhone: loc.printableOrder?.customerPhone,
+          customerAddress: loc.printableOrder?.customerAddress,
+          orderDate: loc.orderDate || new Date().toISOString(),
+          status: loc.status || 'confirmed',
+          subtotalRwf: loc.totalAmountRwf || 0,
+          discountRwf: 0,
+          totalAmountRwf: loc.totalAmountRwf || 0,
+          paidAmountRwf: loc.paidAmountRwf || loc.totalAmountRwf || 0,
+          balanceDueRwf: loc.balanceDueRwf || 0,
+          paymentStatus: 'paid',
+          items: loc.printableOrder?.items || [],
+          payments: loc.printableOrder?.payments || [],
+          notes: `[Online Order] ${loc.fulfillmentType ? loc.fulfillmentType.toUpperCase() + ' • ' : ''}${loc.printableOrder?.customerAddress || ''}`,
+        }));
+
+        let combined: SalesOrderRow[] = [];
         if (!ordersErr && ordersData && ordersData.length > 0) {
-          const mapped: SalesOrderRow[] = ordersData.map((o: any) => {
+          const mappedServer: SalesOrderRow[] = ordersData.map((o: any) => {
             const paidSum = (o.payments || []).reduce((acc: number, p: any) => acc + (p.amount_rwf || 0), 0);
             const total = o.total_amount_rwf || 0;
             return {
@@ -342,13 +366,37 @@ export default function OrdersPage() {
               notes: o.notes,
             };
           });
-          setOrders(mapped);
+
+          // Server orders take precedence, append any local orders not yet on server
+          const serverOrderNums = new Set(mappedServer.map((o) => o.orderNumber));
+          const uniqueLocal = mappedLocal.filter((lo) => !serverOrderNums.has(lo.orderNumber));
+          combined = [...uniqueLocal, ...mappedServer];
+        } else {
+          // If no server rows yet, show local orders first, then baseline reference orders
+          const localOrderNums = new Set(mappedLocal.map((lo) => lo.orderNumber));
+          const uniqueInitial = INITIAL_ORDERS.filter((io) => !localOrderNums.has(io.orderNumber));
+          combined = [...mappedLocal, ...uniqueInitial];
         }
+
+        setOrders(combined);
       } catch (err) {
         console.warn('Using baseline customer & order reference data:', err);
       }
     };
+
     fetchOnlineOrders();
+
+    // Listen for new orders placed anywhere across the platform
+    const handleOrderPlaced = () => {
+      fetchOnlineOrders();
+    };
+    window.addEventListener('turashoboye_order_placed', handleOrderPlaced);
+    window.addEventListener('storage', handleOrderPlaced);
+
+    return () => {
+      window.removeEventListener('turashoboye_order_placed', handleOrderPlaced);
+      window.removeEventListener('storage', handleOrderPlaced);
+    };
   }, []);
 
   // Handle new sale submission
@@ -732,6 +780,11 @@ export default function OrdersPage() {
                       <div className="font-mono font-bold text-gray-900 text-xs">
                         {ord.orderNumber}
                       </div>
+                      {ord.notes?.includes('[Online Order]') && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-[#2E7D32] border border-emerald-200 my-0.5">
+                          Web Store Order
+                        </span>
+                      )}
                       <div className="text-[11px] text-gray-400 flex items-center gap-1 mt-0.5">
                         <Clock className="h-3 w-3" />
                         {new Date(ord.orderDate).toLocaleDateString()}

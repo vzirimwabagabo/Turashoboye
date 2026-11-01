@@ -3,6 +3,7 @@ import type { PrintableOrder } from '../components/sales/OrderReceiptModal';
 
 export interface OrderItemInput {
   productId: string;
+  variantId?: string;
   productName: string;
   sku: string;
   packageSize: string;
@@ -126,6 +127,14 @@ _Order confirmed on Turashoboye platform. Please prepare batch for pickup/delive
   return `https://wa.me/${staffPhone}?text=${encodeURIComponent(text)}`;
 }
 
+const SKU_TO_VARIANT_ID: Record<string, string> = {
+  'BSM-50KG': 'f299c2cd-ddd2-4f9f-85d0-09f4d0a6c789',
+  'BSM-25KG': 'f4b6c9f5-55cb-401d-9e88-557b5c2786f2',
+  'LCM-50KG': '2f83fa2f-94cd-4b33-88d7-887cc460873b',
+  'PSM-50KG': '759d508f-d6ee-44b5-8285-5c85a5948c75',
+  'DMC-50KG': 'f0aaadc8-fdb8-4395-9bb1-e4aa92579edf',
+};
+
 /**
  * Create and place a verified customer order
  */
@@ -139,8 +148,8 @@ export async function placeCustomerOrder(params: PlaceOrderParams): Promise<{
   const now = new Date();
   const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
   const randomSuffix = Math.floor(100 + Math.random() * 900);
-  const orderNumber = `ORD-${dateStr}-${randomSuffix}`;
-  const orderId = crypto.randomUUID();
+  let orderNumber = `ORD-${dateStr}-${randomSuffix}`;
+  let orderId = crypto.randomUUID();
   const activeBatchNumber = `B-${dateStr}-001`;
 
   const printableOrder: PrintableOrder = {
@@ -190,25 +199,45 @@ export async function placeCustomerOrder(params: PlaceOrderParams): Promise<{
     printableOrder,
   };
 
-  // 1. Resilient local storage
+  // 1. Attempt database integration (Supabase submit_customer_order RPC)
+  try {
+    const firstItem = params.items[0];
+    const rawVariantId = firstItem?.variantId;
+    const isUuid = rawVariantId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawVariantId);
+    const targetVariantId = isUuid ? rawVariantId : (SKU_TO_VARIANT_ID[firstItem?.sku || ''] || 'f299c2cd-ddd2-4f9f-85d0-09f4d0a6c789');
+    const totalBags = params.items.reduce((s, it) => s + it.quantity, 0);
+
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('submit_customer_order', {
+      p_variant_id: targetVariantId,
+      p_quantity: totalBags,
+      p_payment_method: params.paymentMethod,
+      p_notes: `${params.fulfillmentType.toUpperCase()} - ${params.deliveryAddress}. ${params.notes || ''}`.trim(),
+    });
+
+    if (!rpcError && rpcResult?.success) {
+      if (rpcResult.order_number) {
+        orderNumber = rpcResult.order_number;
+        printableOrder.orderNumber = rpcResult.order_number;
+        storedRecord.orderNumber = rpcResult.order_number;
+      }
+      if (rpcResult.order_id) {
+        orderId = rpcResult.order_id;
+        printableOrder.id = rpcResult.order_id;
+        storedRecord.id = rpcResult.order_id;
+      }
+    } else if (rpcError) {
+      console.warn('submit_customer_order RPC note:', rpcError.message);
+    }
+  } catch (err) {
+    console.warn('Supabase customer order RPC call caught:', err);
+  }
+
+  // 2. Resilient local storage (always saved)
   saveLocalCustomerOrder(storedRecord);
 
-  // 2. Database integration (Supabase)
-  try {
-    await supabase.from('sales_orders').insert({
-      id: orderId,
-      order_number: orderNumber,
-      customer_id: params.customerId.startsWith('p-') || params.customerId.length !== 36 ? undefined : params.customerId,
-      status: 'confirmed',
-      order_date: now.toISOString().split('T')[0],
-      subtotal_rwf: calculation.subtotalRwf,
-      discount_rwf: calculation.discountRwf,
-      total_amount_rwf: calculation.totalAmountRwf,
-      currency_code: 'RWF',
-      notes: `${params.fulfillmentType.toUpperCase()} - ${params.deliveryAddress}. ${params.notes || ''}`.trim(),
-    });
-  } catch (err) {
-    console.warn('Supabase sales_orders insert note (saved to resilient local store):', err);
+  // 3. Dispatch event so Sales & Orders page and Customer Portal update in real time
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('turashoboye_order_placed', { detail: storedRecord }));
   }
 
   return {

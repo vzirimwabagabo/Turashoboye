@@ -18,6 +18,7 @@ import OrderReceiptModal from '../../components/sales/OrderReceiptModal';
 import type { PrintableOrder } from '../../components/sales/OrderReceiptModal';
 import OrderPlacementModal from '../../components/sales/OrderPlacementModal';
 import type { FeedOrderTarget } from '../../components/sales/OrderPlacementModal';
+import { getLocalCustomerOrders } from '../../lib/orderService';
 
 interface CustomerOrder {
   id: string;
@@ -196,6 +197,42 @@ export default function CustomerPortalPage() {
 
   useEffect(() => {
     window.scrollTo(0, 0);
+
+    const syncOrders = () => {
+      const local = getLocalCustomerOrders();
+      if (local && local.length > 0) {
+        const mappedLocal: CustomerOrder[] = local.map((loc: any) => ({
+          id: loc.id,
+          orderNumber: loc.orderNumber,
+          orderDate: loc.orderDate,
+          status: loc.status || 'confirmed',
+          totalAmountRwf: loc.totalAmountRwf,
+          paidAmountRwf: loc.paidAmountRwf || loc.totalAmountRwf,
+          balanceDueRwf: loc.balanceDueRwf || 0,
+          itemsSummary: loc.itemsSummary || (loc.printableOrder?.items || []).map((i: any) => `${i.quantity}x ${i.productName}`).join(', '),
+          printableOrder: loc.printableOrder,
+        }));
+
+        setOrders((prev) => {
+          const localNums = new Set(mappedLocal.map((l) => l.orderNumber));
+          const uniquePrev = prev.filter((p) => !localNums.has(p.orderNumber));
+          return [...mappedLocal, ...uniquePrev];
+        });
+      }
+    };
+
+    syncOrders();
+
+    const handleOrderPlaced = () => {
+      syncOrders();
+    };
+    window.addEventListener('turashoboye_order_placed', handleOrderPlaced);
+    window.addEventListener('storage', handleOrderPlaced);
+
+    return () => {
+      window.removeEventListener('turashoboye_order_placed', handleOrderPlaced);
+      window.removeEventListener('storage', handleOrderPlaced);
+    };
   }, []);
 
   const handleOpenOrder = (feed: typeof AVAILABLE_FEEDS[0]) => {

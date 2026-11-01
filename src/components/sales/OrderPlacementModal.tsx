@@ -87,6 +87,7 @@ export default function OrderPlacementModal({
 
   const currentItem: OrderItemInput = {
     productId: feed.id,
+    variantId: currentVariant.id,
     productName: feed.name,
     sku: currentVariant.sku,
     packageSize: currentVariant.package_size,
