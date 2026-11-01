@@ -9,6 +9,9 @@ import {
   CheckCircle2,
   X,
   AlertCircle,
+  FileText,
+  Eye,
+  ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { uploadMediaFile } from '../../lib/cloudinary';
@@ -38,6 +41,7 @@ const INITIAL_REGULATORY_RECORDS: RegulatoryItem[] = [
     issueDate: '2026-01-15',
     expiryDate: '2036-01-15',
     status: 'verified',
+    documentUrl: 'https://res.cloudinary.com/dipwvs0z/image/upload/v1793561369/turashoboye/compliance/h1vy5doqavomvsasb6xr.svg',
     notes: 'Registered in Kirehe District, Eastern Province. 10-year statutory tax retention baseline active.',
   },
   {
@@ -99,9 +103,30 @@ const INITIAL_REGULATORY_RECORDS: RegulatoryItem[] = [
   },
 ];
 
+const COMPLIANCE_STORAGE_KEY = 'turashoboye_compliance_records';
+
+function getStoredComplianceRecords(): RegulatoryItem[] {
+  try {
+    const raw = localStorage.getItem(COMPLIANCE_STORAGE_KEY);
+    if (!raw) return INITIAL_REGULATORY_RECORDS;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_REGULATORY_RECORDS;
+  } catch {
+    return INITIAL_REGULATORY_RECORDS;
+  }
+}
+
+function saveStoredComplianceRecords(records: RegulatoryItem[]) {
+  try {
+    localStorage.setItem(COMPLIANCE_STORAGE_KEY, JSON.stringify(records));
+  } catch (err) {
+    console.warn('Failed to save compliance records to local storage:', err);
+  }
+}
+
 export default function CompliancePage() {
   const { user } = useAuth();
-  const [records, setRecords] = useState<RegulatoryItem[]>(INITIAL_REGULATORY_RECORDS);
+  const [records, setRecords] = useState<RegulatoryItem[]>(getStoredComplianceRecords);
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -285,6 +310,28 @@ export default function CompliancePage() {
                   </div>
                 )}
 
+                {item.documentUrl ? (
+                  <div className="flex items-center justify-between rounded-lg bg-emerald-50/70 border border-emerald-200/80 p-2.5 text-xs">
+                    <div className="flex items-center gap-1.5 text-[#2E7D32] font-semibold min-w-0">
+                      <FileText size={15} className="shrink-0" />
+                      <span className="truncate">Certificate Attached</span>
+                    </div>
+                    <a
+                      href={item.documentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-[#2E7D32] hover:bg-green-800 text-white font-bold text-xs shadow-xs transition shrink-0 cursor-pointer"
+                    >
+                      <Eye size={13} />
+                      View File
+                    </a>
+                  </div>
+                ) : (
+                  <div className="rounded-lg bg-gray-50 p-2 text-[11px] text-gray-400 italic">
+                    No digital document attached yet.
+                  </div>
+                )}
+
                 {item.notes && (
                   <p className="text-xs text-gray-600 italic bg-amber-50/50 p-2 rounded border border-amber-100/60">
                     &ldquo;{item.notes}&rdquo;
@@ -306,7 +353,7 @@ export default function CompliancePage() {
                       setSelectedRecord(item);
                       setIsUploadModalOpen(true);
                     }}
-                    className="inline-flex items-center gap-1 text-[#2E7D32] hover:text-green-800 font-semibold"
+                    className="inline-flex items-center gap-1 text-[#2E7D32] hover:text-green-800 font-semibold cursor-pointer"
                   >
                     <Upload className="h-3 w-3" />
                     Update
@@ -328,9 +375,14 @@ export default function CompliancePage() {
           }}
           record={selectedRecord}
           onSave={(updatedRecord) => {
-            setRecords((prev) =>
-              prev.map((r) => (r.id === updatedRecord.id ? updatedRecord : r))
-            );
+            setRecords((prev) => {
+              const exists = prev.some((r) => r.id === updatedRecord.id);
+              const next = exists
+                ? prev.map((r) => (r.id === updatedRecord.id ? updatedRecord : r))
+                : [updatedRecord, ...prev];
+              saveStoredComplianceRecords(next);
+              return next;
+            });
             setIsUploadModalOpen(false);
           }}
         />
@@ -508,6 +560,23 @@ function ComplianceUploadModal({
             <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
               Upload Certificate / Lab Test (PDF or JPG, max 10MB)
             </label>
+            {record?.documentUrl && (
+              <div className="mb-2 flex items-center justify-between p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-xs">
+                <span className="text-emerald-900 font-semibold flex items-center gap-1.5">
+                  <FileText size={14} className="text-[#2E7D32]" />
+                  Current Certificate Attached
+                </span>
+                <a
+                  href={record.documentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[#2E7D32] hover:underline font-bold text-xs"
+                >
+                  <ExternalLink size={12} />
+                  Open Document
+                </a>
+              </div>
+            )}
             <input
               type="file"
               accept=".pdf,image/jpeg,image/png,image/webp"
