@@ -15,43 +15,9 @@ interface SupplierItem {
   is_active: boolean;
 }
 
-const SAMPLE_SUPPLIERS: SupplierItem[] = [
-  {
-    id: 'sup-1',
-    name: 'Eastern Agribusiness Co-operative Ltd',
-    contact_name: 'Emmanuel Habimana',
-    phone: '+250 788 111 222',
-    email: 'sales@easternagri.rw',
-    address: 'Kirehe Town, Eastern Province',
-    tin_number: '102938475',
-    gln: '6001234567890',
-    is_active: true,
-  },
-  {
-    id: 'sup-2',
-    name: 'Kirehe Grain Aggregators Ltd',
-    contact_name: 'Beata Mukamana',
-    phone: '+250 788 333 444',
-    email: 'info@kirehegrains.rw',
-    address: 'Gatore Sector, Kirehe District',
-    tin_number: '109847362',
-    is_active: true,
-  },
-  {
-    id: 'sup-3',
-    name: 'Kigali Veterinary & Feed Supplements Ltd',
-    contact_name: 'Dr. Alexis Nshuti',
-    phone: '+250 788 555 666',
-    email: 'alexis@kigalivet.rw',
-    address: 'Kicukiro, Kigali, Rwanda',
-    tin_number: '100293847',
-    is_active: true,
-  },
-];
-
 export default function SuppliersPage() {
   const { user } = useAuth();
-  const [suppliers, setSuppliers] = useState<SupplierItem[]>(SAMPLE_SUPPLIERS);
+  const [suppliers, setSuppliers] = useState<SupplierItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -72,11 +38,11 @@ export default function SuppliersPage() {
       try {
         setLoading(true);
         const { data, error } = await supabase.from('suppliers').select('*');
-        if (!error && data && data.length > 0) {
+        if (!error && data) {
           setSuppliers(data as SupplierItem[]);
         }
       } catch (err) {
-        console.warn('Using baseline suppliers', err);
+        console.warn('Error fetching suppliers', err);
       } finally {
         setLoading(false);
       }

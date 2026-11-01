@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   BarChart2,
   Download,
   CheckCircle2,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { supabase } from '../../lib/supabase';
 
 interface SalesMetric {
   period: string;
@@ -26,74 +27,90 @@ interface BatchYieldMetric {
   status: 'passed' | 'warning';
 }
 
-const SAMPLE_SALES_REPORT: SalesMetric[] = [
-  {
-    period: 'October 2026 (Month to Date)',
-    totalSalesRwf: 1682000,
-    cashCollectedRwf: 1100000,
-    momoCollectedRwf: 414000,
-    receivablesRwf: 168000,
-    orderCount: 38,
-  },
-  {
-    period: 'September 2026',
-    totalSalesRwf: 2450000,
-    cashCollectedRwf: 1820000,
-    momoCollectedRwf: 630000,
-    receivablesRwf: 0,
-    orderCount: 52,
-  },
-];
-
-const SAMPLE_BATCH_YIELDS: BatchYieldMetric[] = [
-  {
-    batchNumber: 'B-20261017-001',
-    productName: 'Turashoboye Broiler Starter Mash (50kg)',
-    plannedKg: 1000,
-    actualKg: 978,
-    lossKg: 22,
-    lossPercentage: 2.2,
-    completedDate: '2026-10-17',
-    status: 'passed',
-  },
-  {
-    batchNumber: 'B-20261016-004',
-    productName: 'Turashoboye Broiler Starter Mash (50kg)',
-    plannedKg: 1000,
-    actualKg: 970,
-    lossKg: 30,
-    lossPercentage: 3.0,
-    completedDate: '2026-10-16',
-    status: 'passed',
-  },
-  {
-    batchNumber: 'B-20261015-002',
-    productName: 'Turashoboye Layer Complete Mash (50kg)',
-    plannedKg: 1200,
-    actualKg: 1135,
-    lossKg: 65,
-    lossPercentage: 5.4,
-    completedDate: '2026-10-15',
-    status: 'warning', // Triggered >5% threshold
-  },
-  {
-    batchNumber: 'B-20261014-001',
-    productName: 'Turashoboye Pig Grower Feed (50kg)',
-    plannedKg: 800,
-    actualKg: 785,
-    lossKg: 15,
-    lossPercentage: 1.88,
-    completedDate: '2026-10-14',
-    status: 'passed',
-  },
-];
-
 export default function ReportsPage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'sales' | 'production' | 'inventory'>('sales');
   const [timeRange, setTimeRange] = useState<'30days' | '90days' | 'all'>('30days');
+  const [salesReport, setSalesReport] = useState<SalesMetric[]>([]);
+  const [batchYields, setBatchYields] = useState<BatchYieldMetric[]>([]);
 
   const canViewReports = ['manager', 'owner', 'super_admin'].includes(user?.profile?.role || '');
+
+  useEffect(() => {
+    const fetchReportData = async () => {
+      try {
+        // 1. Fetch sales orders to aggregate by month
+        const { data: orders } = await supabase
+          .from('sales_orders')
+          .select('id, order_date, total_amount_rwf, payments(method, amount_rwf)');
+
+        if (orders && orders.length > 0) {
+          const grouped: Record<string, SalesMetric> = {};
+
+          orders.forEach((o: any) => {
+            const date = new Date(o.order_date);
+            const periodKey = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+            if (!grouped[periodKey]) {
+              grouped[periodKey] = {
+                period: periodKey,
+                totalSalesRwf: 0,
+                cashCollectedRwf: 0,
+                momoCollectedRwf: 0,
+                receivablesRwf: 0,
+                orderCount: 0,
+              };
+            }
+
+            const total = o.total_amount_rwf || 0;
+            let cash = 0;
+            let momo = 0;
+            (o.payments || []).forEach((p: any) => {
+              if (p.method === 'cash') cash += p.amount_rwf || 0;
+              if (p.method === 'momo') momo += p.amount_rwf || 0;
+            });
+
+            grouped[periodKey].totalSalesRwf += total;
+            grouped[periodKey].cashCollectedRwf += cash;
+            grouped[periodKey].momoCollectedRwf += momo;
+            grouped[periodKey].receivablesRwf += Math.max(0, total - (cash + momo));
+            grouped[periodKey].orderCount += 1;
+          });
+
+          setSalesReport(Object.values(grouped));
+        }
+
+        // 2. Fetch production batches for yields
+        const { data: batches } = await supabase
+          .from('production_batches')
+          .select('id, batch_number, planned_output_qty, actual_yield_kg, created_at, product_variants(products(name))');
+
+        if (batches && batches.length > 0) {
+          const yields: BatchYieldMetric[] = batches.map((b: any) => {
+            const planned = b.planned_output_qty || 0;
+            const actual = b.actual_yield_kg || planned;
+            const loss = Math.max(0, planned - actual);
+            const lossPct = planned > 0 ? (loss / planned) * 100 : 0;
+            return {
+              batchNumber: b.batch_number,
+              productName: b.product_variants?.products?.name || 'Feed Product',
+              plannedKg: planned,
+              actualKg: actual,
+              lossKg: loss,
+              lossPercentage: lossPct,
+              completedDate: b.created_at ? b.created_at.split('T')[0] : '',
+              status: lossPct > 5.0 ? 'warning' : 'passed',
+            };
+          });
+          setBatchYields(yields);
+        }
+      } catch (err) {
+        console.warn('Error fetching reports data:', err);
+      }
+    };
+
+    fetchReportData();
+  }, []);
 
   // Helper to trigger CSV download
   const handleExportCSV = (reportType: string) => {
@@ -103,20 +120,18 @@ export default function ReportsPage() {
     if (reportType === 'sales') {
       filename = `turashoboye_sales_report_${new Date().toISOString().slice(0, 10)}.csv`;
       csvContent = 'Period,Total Sales (RWF),Cash (RWF),MoMo (RWF),Receivables (RWF),Orders\n';
-      SAMPLE_SALES_REPORT.forEach((row) => {
+      salesReport.forEach((row) => {
         csvContent += `"${row.period}",${row.totalSalesRwf},${row.cashCollectedRwf},${row.momoCollectedRwf},${row.receivablesRwf},${row.orderCount}\n`;
       });
     } else if (reportType === 'production') {
       filename = `turashoboye_production_yields_${new Date().toISOString().slice(0, 10)}.csv`;
       csvContent = 'Batch Number,Product Name,Planned (kg),Actual Output (kg),Milling Loss (kg),Loss (%),Date,Status\n';
-      SAMPLE_BATCH_YIELDS.forEach((row) => {
+      batchYields.forEach((row) => {
         csvContent += `"${row.batchNumber}","${row.productName}",${row.plannedKg},${row.actualKg},${row.lossKg},${row.lossPercentage}%,"${row.completedDate}","${row.status}"\n`;
       });
     } else {
       filename = `turashoboye_stock_movements_${new Date().toISOString().slice(0, 10)}.csv`;
       csvContent = 'Date,Movement Type,SKU,Quantity,Location,Reason\n';
-      csvContent += '"2026-10-17 09:15:00","sale","BSM-50KG",-2,"DEPOT-01","Sale order ORD-20261017-001"\n';
-      csvContent += '"2026-10-17 08:30:00","production_output","BSM-50KG",20,"DEPOT-01","Yield from batch B-20261017-001"\n';
     }
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -136,6 +151,15 @@ export default function ReportsPage() {
       </div>
     );
   }
+
+  const totalRev = salesReport.reduce((acc, r) => acc + r.totalSalesRwf, 0);
+  const totalCash = salesReport.reduce((acc, r) => acc + r.cashCollectedRwf, 0);
+  const totalMomo = salesReport.reduce((acc, r) => acc + r.momoCollectedRwf, 0);
+  const totalReceivables = salesReport.reduce((acc, r) => acc + r.receivablesRwf, 0);
+  const totalOrders = salesReport.reduce((acc, r) => acc + r.orderCount, 0);
+  const avgLoss = batchYields.length > 0 
+    ? (batchYields.reduce((acc, b) => acc + b.lossPercentage, 0) / batchYields.length).toFixed(2)
+    : '0.00';
 
   return (
     <div className="space-y-6">
@@ -218,9 +242,9 @@ export default function ReportsPage() {
                 Total Revenue
               </span>
               <span className="text-2xl font-black text-[#2E7D32] mt-1 block">
-                RWF 4,132,000
+                RWF {totalRev.toLocaleString()}
               </span>
-              <span className="text-xs text-gray-500 mt-0.5 block">90 transactions</span>
+              <span className="text-xs text-gray-500 mt-0.5 block">{totalOrders} transactions</span>
             </div>
 
             <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-xs">
@@ -228,9 +252,9 @@ export default function ReportsPage() {
                 Cash at Counter
               </span>
               <span className="text-2xl font-bold text-gray-900 mt-1 block">
-                RWF 2,920,000
+                RWF {totalCash.toLocaleString()}
               </span>
-              <span className="text-xs text-gray-500 mt-0.5 block">70.6% of turnover</span>
+              <span className="text-xs text-gray-500 mt-0.5 block">Direct settlement</span>
             </div>
 
             <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-xs">
@@ -238,7 +262,7 @@ export default function ReportsPage() {
                 Mobile Money (MoMo)
               </span>
               <span className="text-2xl font-bold text-blue-700 mt-1 block">
-                RWF 1,044,000
+                RWF {totalMomo.toLocaleString()}
               </span>
               <span className="text-xs text-gray-500 mt-0.5 block">MTN & Airtel payments</span>
             </div>
@@ -248,9 +272,9 @@ export default function ReportsPage() {
                 Open Receivables
               </span>
               <span className="text-2xl font-bold text-amber-700 mt-1 block">
-                RWF 168,000
+                RWF {totalReceivables.toLocaleString()}
               </span>
-              <span className="text-xs text-gray-500 mt-0.5 block">Cooperative accounts</span>
+              <span className="text-xs text-gray-500 mt-0.5 block">Pending customer balances</span>
             </div>
           </div>
 
@@ -274,20 +298,28 @@ export default function ReportsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {SAMPLE_SALES_REPORT.map((row, i) => (
-                  <tr key={i} className="hover:bg-gray-50/80">
-                    <td className="px-6 py-4 font-medium text-gray-900">{row.period}</td>
-                    <td className="px-6 py-4 text-right">{row.orderCount}</td>
-                    <td className="px-6 py-4 text-right">RWF {row.cashCollectedRwf.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-right">RWF {row.momoCollectedRwf.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-right text-amber-700">
-                      RWF {row.receivablesRwf.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 text-right font-black text-gray-900">
-                      RWF {row.totalSalesRwf.toLocaleString()}
+                {salesReport.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
+                      No sales transactions recorded for this period.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  salesReport.map((row, i) => (
+                    <tr key={i} className="hover:bg-gray-50/80">
+                      <td className="px-6 py-4 font-medium text-gray-900">{row.period}</td>
+                      <td className="px-6 py-4 text-right">{row.orderCount}</td>
+                      <td className="px-6 py-4 text-right">RWF {row.cashCollectedRwf.toLocaleString()}</td>
+                      <td className="px-6 py-4 text-right">RWF {row.momoCollectedRwf.toLocaleString()}</td>
+                      <td className="px-6 py-4 text-right text-amber-700">
+                        RWF {row.receivablesRwf.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 text-right font-black text-gray-900">
+                        RWF {row.totalSalesRwf.toLocaleString()}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -311,7 +343,7 @@ export default function ReportsPage() {
                 <span className="text-xs text-gray-500 uppercase tracking-wider block font-semibold">
                   Average Loss
                 </span>
-                <span className="text-xl font-bold text-green-700">3.12%</span>
+                <span className="text-xl font-bold text-green-700">{avgLoss}%</span>
               </div>
             </div>
           </div>
@@ -330,31 +362,39 @@ export default function ReportsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {SAMPLE_BATCH_YIELDS.map((row) => (
-                  <tr key={row.batchNumber} className="hover:bg-gray-50/80">
-                    <td className="px-6 py-4 font-mono font-bold text-gray-900 text-xs">
-                      {row.batchNumber}
-                    </td>
-                    <td className="px-6 py-4 font-medium text-gray-900">{row.productName}</td>
-                    <td className="px-6 py-4 text-right">{row.plannedKg} kg</td>
-                    <td className="px-6 py-4 text-right font-semibold">{row.actualKg} kg</td>
-                    <td className="px-6 py-4 text-right text-gray-500">{row.lossKg} kg</td>
-                    <td className="px-6 py-4 text-right font-bold">
-                      {row.lossPercentage.toFixed(2)}%
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      {row.status === 'passed' ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-semibold text-green-700">
-                          <CheckCircle2 className="h-3 w-3" /> Within 5%
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-700">
-                          &gt; 5.0% Warning
-                        </span>
-                      )}
+                {batchYields.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
+                      No production batches completed for this period.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  batchYields.map((row) => (
+                    <tr key={row.batchNumber} className="hover:bg-gray-50/80">
+                      <td className="px-6 py-4 font-mono font-bold text-gray-900 text-xs">
+                        {row.batchNumber}
+                      </td>
+                      <td className="px-6 py-4 font-medium text-gray-900">{row.productName}</td>
+                      <td className="px-6 py-4 text-right">{row.plannedKg} kg</td>
+                      <td className="px-6 py-4 text-right font-semibold">{row.actualKg} kg</td>
+                      <td className="px-6 py-4 text-right text-gray-500">{row.lossKg} kg</td>
+                      <td className="px-6 py-4 text-right font-bold">
+                        {row.lossPercentage.toFixed(2)}%
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        {row.status === 'passed' ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-semibold text-green-700">
+                            <CheckCircle2 className="h-3 w-3" /> Within 5%
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-700">
+                            &gt; 5.0% Warning
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

@@ -15,44 +15,8 @@ interface LotRow {
   created_at: string;
 }
 
-const SAMPLE_LOTS: LotRow[] = [
-  {
-    id: 'lot-1',
-    lot_number: 'LOT-SOYA-20261015-01',
-    supplier_name: 'Eastern Agribusiness Co-operative Ltd',
-    ingredient_name: 'Raw Soya Beans (Grain Grade)',
-    received_quantity: 5000,
-    unit_name: 'kg',
-    expiry_date: '2027-04-15',
-    status: 'available',
-    created_at: '2026-10-15',
-  },
-  {
-    id: 'lot-2',
-    lot_number: 'LOT-MAIZE-20261016-02',
-    supplier_name: 'Kirehe Grain Aggregators Ltd',
-    ingredient_name: 'Yellow Feed Maize (Cleaned)',
-    received_quantity: 8000,
-    unit_name: 'kg',
-    expiry_date: '2027-01-16',
-    status: 'available',
-    created_at: '2026-10-16',
-  },
-  {
-    id: 'lot-3',
-    lot_number: 'LOT-PREMIX-20261010-01',
-    supplier_name: 'Kigali Veterinary & Feed Supplements Ltd',
-    ingredient_name: 'Layer Vitamin-Mineral Premix 2.5%',
-    received_quantity: 250,
-    unit_name: 'kg',
-    expiry_date: '2027-10-10',
-    status: 'held', // Quality hold pending lab CoA verification
-    created_at: '2026-10-10',
-  },
-];
-
 export default function LotsPage() {
-  const [lots, setLots] = useState<LotRow[]>(SAMPLE_LOTS);
+  const [lots, setLots] = useState<LotRow[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -74,7 +38,7 @@ export default function LotsPage() {
             units_of_measure(name)
           `);
 
-        if (!error && data && data.length > 0) {
+        if (!error && data) {
           const formatted: LotRow[] = data.map((d: any) => ({
             id: d.id,
             lot_number: d.lot_number,

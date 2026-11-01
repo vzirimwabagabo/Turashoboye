@@ -24,69 +24,9 @@ interface ProductItem {
   }[];
 }
 
-const SAMPLE_OPS_PRODUCTS: ProductItem[] = [
-  {
-    id: 'p1',
-    name: 'Turashoboye Broiler Starter Mash',
-    slug: 'broiler-starter-mash',
-    category_name: 'Poultry Feed',
-    type: 'finished_feed',
-    target_animal: 'Broilers',
-    published: true,
-    variants_count: 3,
-    variants: [
-      { id: 'v1', sku: 'BSM-50KG', package_size: '50kg Bag', price_rwf: 38000, cost_rwf: 31500 },
-      { id: 'v2', sku: 'BSM-25KG', package_size: '25kg Bag', price_rwf: 19500, cost_rwf: 15900 },
-      { id: 'v3', sku: 'BSM-10KG', package_size: '10kg Bag', price_rwf: 8200, cost_rwf: 6500 },
-    ],
-  },
-  {
-    id: 'p2',
-    name: 'Turashoboye Layer Complete Mash',
-    slug: 'layer-complete-mash',
-    category_name: 'Poultry Feed',
-    type: 'finished_feed',
-    target_animal: 'Layers',
-    published: true,
-    variants_count: 2,
-    variants: [
-      { id: 'v4', sku: 'LCM-50KG', package_size: '50kg Bag', price_rwf: 35000, cost_rwf: 28500 },
-      { id: 'v5', sku: 'LCM-25KG', package_size: '25kg Bag', price_rwf: 18000, cost_rwf: 14500 },
-    ],
-  },
-  {
-    id: 'p3',
-    name: 'Turashoboye Pig Grower Feed',
-    slug: 'pig-grower-feed',
-    category_name: 'Pig Feed',
-    type: 'finished_feed',
-    target_animal: 'Pigs',
-    published: true,
-    variants_count: 2,
-    variants: [
-      { id: 'v6', sku: 'PGF-50KG', package_size: '50kg Bag', price_rwf: 32000, cost_rwf: 26000 },
-      { id: 'v7', sku: 'PGF-25KG', package_size: '25kg Bag', price_rwf: 16500, cost_rwf: 13200 },
-    ],
-  },
-  {
-    id: 'p4',
-    name: 'Feed-Grade Soya Bean Meal',
-    slug: 'feed-grade-soya-meal',
-    category_name: 'Raw Ingredients',
-    type: 'raw_ingredient',
-    target_animal: 'Multi-Species',
-    published: true,
-    variants_count: 2,
-    variants: [
-      { id: 'v8', sku: 'SOYA-50KG', package_size: '50kg Bag', price_rwf: 42000, cost_rwf: 36000 },
-      { id: 'v9', sku: 'SOYA-25KG', package_size: '25kg Bag', price_rwf: 21500, cost_rwf: 18200 },
-    ],
-  },
-];
-
 export default function ProductsPage() {
   const { user } = useAuth();
-  const [products, setProducts] = useState<ProductItem[]>(SAMPLE_OPS_PRODUCTS);
+  const [products, setProducts] = useState<ProductItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [modalOpen, setModalOpen] = useState(false);
@@ -112,7 +52,7 @@ export default function ProductsPage() {
             product_images(image_url, is_primary)
           `);
 
-        if (!error && data && data.length > 0) {
+        if (!error && data) {
           const formatted: ProductItem[] = data.map((p: any) => {
             const primaryImg = p.product_images?.find((img: any) => img.is_primary) || p.product_images?.[0];
             return {

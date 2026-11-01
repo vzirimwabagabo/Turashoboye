@@ -57,7 +57,7 @@ const SILOS: SiloData[] = [
 
 export default function DepotManagerDashboardView() {
   const { user } = useAuth();
-  const managerName = user?.profile?.displayName || 'Vedaste Zirimwabagabo';
+  const managerName = user?.profile?.displayName || user?.email?.split('@')[0] || 'Depot Manager';
 
   return (
     <div className="space-y-6">

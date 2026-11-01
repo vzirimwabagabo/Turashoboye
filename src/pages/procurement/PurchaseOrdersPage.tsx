@@ -17,51 +17,9 @@ interface PurchaseOrderItem {
   total_amount_rwf: number;
 }
 
-const SAMPLE_POS: PurchaseOrderItem[] = [
-  {
-    id: 'po-1',
-    po_number: 'PO-20261014-001',
-    supplier_name: 'Eastern Agribusiness Co-operative Ltd',
-    status: 'received',
-    order_date: '2026-10-14',
-    expected_delivery: '2026-10-15',
-    item_name: 'Raw Soya Beans (Grain Grade)',
-    ordered_quantity: 5000,
-    received_quantity: 5000,
-    unit_price_rwf: 750,
-    total_amount_rwf: 3750000,
-  },
-  {
-    id: 'po-2',
-    po_number: 'PO-20261016-002',
-    supplier_name: 'Kirehe Grain Aggregators Ltd',
-    status: 'ordered',
-    order_date: '2026-10-16',
-    expected_delivery: '2026-10-18',
-    item_name: 'Yellow Feed Maize (Cleaned)',
-    ordered_quantity: 8000,
-    received_quantity: 0,
-    unit_price_rwf: 420,
-    total_amount_rwf: 3360000,
-  },
-  {
-    id: 'po-3',
-    po_number: 'PO-20261017-003',
-    supplier_name: 'Kigali Veterinary & Feed Supplements Ltd',
-    status: 'draft',
-    order_date: '2026-10-17',
-    expected_delivery: '2026-10-22',
-    item_name: 'Broiler Starter Vitamin Premix',
-    ordered_quantity: 300,
-    received_quantity: 0,
-    unit_price_rwf: 3500,
-    total_amount_rwf: 1050000,
-  },
-];
-
 export default function PurchaseOrdersPage() {
   const { user } = useAuth();
-  const [orders, setOrders] = useState<PurchaseOrderItem[]>(SAMPLE_POS);
+  const [orders, setOrders] = useState<PurchaseOrderItem[]>([]);
   const [filterStatus, setFilterStatus] = useState('all');
 
   // Create PO Modal state
@@ -187,7 +145,15 @@ export default function PurchaseOrdersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filtered.map((po) => (
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-10 text-center text-gray-400">
+                    <ClipboardList className="w-10 h-10 mx-auto text-gray-300 mb-2" />
+                    No purchase orders recorded yet.
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((po) => (
                 <tr key={po.id} className="hover:bg-gray-50/80 transition-colors">
                   <td className="px-5 py-4 font-mono font-bold text-gray-900 text-xs">
                     <div>
@@ -248,7 +214,7 @@ export default function PurchaseOrdersPage() {
                     )}
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>

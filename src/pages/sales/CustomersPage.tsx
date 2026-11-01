@@ -24,71 +24,10 @@ interface CustomerSummary extends Customer {
   outstandingBalanceRwf: number;
 }
 
-const SAMPLE_CUSTOMERS: CustomerSummary[] = [
-  {
-    id: 'c1',
-    name: 'Jean-Paul Habimana',
-    phone: '+250 788 123 456',
-    email: 'habimana.jp@example.com',
-    address: 'Mahama Camp, Village 4',
-    preferredContact: 'phone',
-    createdAt: '2026-09-15T08:30:00Z',
-    totalOrdersCount: 6,
-    totalSpentRwf: 288000,
-    outstandingBalanceRwf: 0,
-  },
-  {
-    id: 'c2',
-    name: 'Duterimbere Poultry Cooperative',
-    phone: '+250 782 987 654',
-    email: 'duterimbere.coop@example.com',
-    address: 'Paysannat L, Mahama Host Community',
-    preferredContact: 'whatsapp',
-    createdAt: '2026-09-20T10:15:00Z',
-    totalOrdersCount: 14,
-    totalSpentRwf: 1150000,
-    outstandingBalanceRwf: 120000,
-  },
-  {
-    id: 'c3',
-    name: 'Amina Mukeshimana',
-    phone: '+250 785 456 789',
-    address: 'Mahama Camp, Village 12',
-    preferredContact: 'sms',
-    createdAt: '2026-10-01T14:00:00Z',
-    totalOrdersCount: 3,
-    totalSpentRwf: 144000,
-    outstandingBalanceRwf: 0,
-  },
-  {
-    id: 'c4',
-    name: 'Kirehe Livestock Union',
-    phone: '+250 788 777 888',
-    email: 'livestock@kirehe.org',
-    address: 'Nyakarambi Commercial Centre, Kirehe',
-    preferredContact: 'phone',
-    createdAt: '2026-09-01T09:00:00Z',
-    totalOrdersCount: 9,
-    totalSpentRwf: 864000,
-    outstandingBalanceRwf: 48000,
-  },
-  {
-    id: 'c5',
-    name: 'Emmanuel Nshimiyimana',
-    phone: '+250 722 345 678',
-    address: 'Mahama Camp, Village 7',
-    preferredContact: 'in_person',
-    createdAt: '2026-10-10T11:20:00Z',
-    totalOrdersCount: 1,
-    totalSpentRwf: 48000,
-    outstandingBalanceRwf: 0,
-  },
-];
-
 export default function CustomersPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [customers, setCustomers] = useState<CustomerSummary[]>(SAMPLE_CUSTOMERS);
+  const [customers, setCustomers] = useState<CustomerSummary[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [balanceFilter, setBalanceFilter] = useState<'all' | 'with_balance' | 'settled'>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -107,7 +46,7 @@ export default function CustomersPage() {
           .select('*')
           .order('name', { ascending: true });
 
-        if (!isCancelled && !error && data && data.length > 0) {
+        if (!isCancelled && !error && data) {
           const enriched: CustomerSummary[] = data.map((c) => ({
             ...c,
             totalOrdersCount: 0,

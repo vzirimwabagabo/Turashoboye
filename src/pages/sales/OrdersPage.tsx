@@ -52,222 +52,13 @@ interface SalesOrderRow {
   notes?: string;
 }
 
-const SAMPLE_CUSTOMERS: Customer[] = [
-  {
-    id: 'c1',
-    name: 'Jean-Paul Habimana',
-    phone: '+250 788 123 456',
-    address: 'Mahama Camp, Village 4',
-    preferredContact: 'phone',
-    createdAt: '2026-09-15T08:30:00Z',
-  },
-  {
-    id: 'c2',
-    name: 'Duterimbere Poultry Cooperative',
-    phone: '+250 782 987 654',
-    address: 'Paysannat L, Mahama Host Community',
-    preferredContact: 'whatsapp',
-    createdAt: '2026-09-20T10:15:00Z',
-  },
-  {
-    id: 'c3',
-    name: 'Amina Mukeshimana',
-    phone: '+250 785 456 789',
-    address: 'Mahama Camp, Village 12',
-    preferredContact: 'sms',
-    createdAt: '2026-10-01T14:00:00Z',
-  },
-  {
-    id: 'c4',
-    name: 'Kirehe Livestock Union',
-    phone: '+250 788 777 888',
-    address: 'Nyakarambi Commercial Centre, Kirehe',
-    preferredContact: 'phone',
-    createdAt: '2026-09-01T09:00:00Z',
-  },
-];
-
-const SAMPLE_VARIANTS: AvailableVariant[] = [
-  {
-    id: 'v1',
-    productName: 'Turashoboye Broiler Starter Mash',
-    sku: 'BSM-50KG',
-    packageSize: '50kg Bag',
-    priceRwf: 24000,
-    availableStock: 120,
-  },
-  {
-    id: 'v2',
-    productName: 'Turashoboye Broiler Starter Mash',
-    sku: 'BSM-25KG',
-    packageSize: '25kg Bag',
-    priceRwf: 12500,
-    availableStock: 15,
-  },
-  {
-    id: 'v3',
-    productName: 'Turashoboye Layer Complete Mash',
-    sku: 'LCM-50KG',
-    packageSize: '50kg Bag',
-    priceRwf: 22000,
-    availableStock: 60,
-  },
-  {
-    id: 'v4',
-    productName: 'Turashoboye Pig Grower Feed',
-    sku: 'PGF-50KG',
-    packageSize: '50kg Bag',
-    priceRwf: 21000,
-    availableStock: 25,
-  },
-];
-
-const SAMPLE_BATCHES: AvailableBatch[] = [
-  {
-    id: 'b1',
-    batchNumber: 'B-20261017-001',
-    variantId: 'v1',
-    availableQty: 80,
-  },
-  {
-    id: 'b2',
-    batchNumber: 'B-20261016-004',
-    variantId: 'v1',
-    availableQty: 40,
-  },
-  {
-    id: 'b3',
-    batchNumber: 'B-20261015-002',
-    variantId: 'v3',
-    availableQty: 60,
-  },
-];
-
-const INITIAL_ORDERS: SalesOrderRow[] = [
-  {
-    id: 'ord-1',
-    orderNumber: 'ORD-20261017-001',
-    customerId: 'c1',
-    customerName: 'Jean-Paul Habimana',
-    customerPhone: '+250 788 123 456',
-    customerAddress: 'Mahama Camp, Village 4',
-    orderDate: '2026-10-17T09:15:00Z',
-    status: 'fulfilled',
-    subtotalRwf: 48000,
-    discountRwf: 0,
-    totalAmountRwf: 48000,
-    paidAmountRwf: 48000,
-    balanceDueRwf: 0,
-    paymentStatus: 'paid',
-    items: [
-      {
-        productName: 'Turashoboye Broiler Starter Mash',
-        sku: 'BSM-50KG',
-        packageSize: '50kg Bag',
-        batchNumber: 'B-20261017-001',
-        quantity: 2,
-        unitPriceRwf: 24000,
-        discountRwf: 0,
-        lineTotalRwf: 48000,
-      },
-    ],
-    payments: [
-      {
-        method: 'cash',
-        amountRwf: 48000,
-        paymentDate: '2026-10-17',
-        reference: 'Cash desk',
-        status: 'confirmed',
-      },
-    ],
-    staffName: 'Staff Admin',
-    notes: 'Collected at depot counter',
-  },
-  {
-    id: 'ord-2',
-    orderNumber: 'ORD-20261017-002',
-    customerId: 'c2',
-    customerName: 'Duterimbere Poultry Cooperative',
-    customerPhone: '+250 782 987 654',
-    customerAddress: 'Paysannat L, Mahama Host Community',
-    orderDate: '2026-10-17T11:00:00Z',
-    status: 'confirmed',
-    subtotalRwf: 220000,
-    discountRwf: 0,
-    totalAmountRwf: 220000,
-    paidAmountRwf: 100000,
-    balanceDueRwf: 120000,
-    paymentStatus: 'partial',
-    items: [
-      {
-        productName: 'Turashoboye Layer Complete Mash',
-        sku: 'LCM-50KG',
-        packageSize: '50kg Bag',
-        batchNumber: 'B-20261015-002',
-        quantity: 10,
-        unitPriceRwf: 22000,
-        discountRwf: 0,
-        lineTotalRwf: 220000,
-      },
-    ],
-    payments: [
-      {
-        method: 'momo',
-        amountRwf: 100000,
-        paymentDate: '2026-10-17',
-        reference: 'MTN MP261017.982',
-        status: 'confirmed',
-      },
-    ],
-    staffName: 'Staff Admin',
-    notes: 'Delivery scheduled for afternoon to Paysannat L site',
-  },
-  {
-    id: 'ord-3',
-    orderNumber: 'ORD-20261016-003',
-    customerId: 'c4',
-    customerName: 'Kirehe Livestock Union',
-    customerPhone: '+250 788 777 888',
-    customerAddress: 'Nyakarambi Commercial Centre, Kirehe',
-    orderDate: '2026-10-16T15:30:00Z',
-    status: 'fulfilled',
-    subtotalRwf: 105000,
-    discountRwf: 0,
-    totalAmountRwf: 105000,
-    paidAmountRwf: 105000,
-    balanceDueRwf: 0,
-    paymentStatus: 'paid',
-    items: [
-      {
-        productName: 'Turashoboye Pig Grower Feed',
-        sku: 'PGF-50KG',
-        packageSize: '50kg Bag',
-        quantity: 5,
-        unitPriceRwf: 21000,
-        discountRwf: 0,
-        lineTotalRwf: 105000,
-      },
-    ],
-    payments: [
-      {
-        method: 'cash',
-        amountRwf: 105000,
-        paymentDate: '2026-10-16',
-        reference: 'Full settlement',
-        status: 'confirmed',
-      },
-    ],
-    staffName: 'Staff Admin',
-  },
-];
-
 export default function OrdersPage() {
   const location = useLocation();
   const { user } = useAuth();
-  const [orders, setOrders] = useState<SalesOrderRow[]>(INITIAL_ORDERS);
-  const [customers, setCustomers] = useState<Customer[]>(SAMPLE_CUSTOMERS);
-  const [variants] = useState<AvailableVariant[]>(SAMPLE_VARIANTS);
-  const [batches] = useState<AvailableBatch[]>(SAMPLE_BATCHES);
+  const [orders, setOrders] = useState<SalesOrderRow[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [variants, setVariants] = useState<AvailableVariant[]>([]);
+  const [batches, setBatches] = useState<AvailableBatch[]>([]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -291,6 +82,40 @@ export default function OrdersPage() {
         const { data: custData } = await supabase.from('customers').select('*');
         if (custData && custData.length > 0) {
           setCustomers(custData);
+        }
+
+        // Fetch active product variants for sales order creation
+        const { data: variantData } = await supabase
+          .from('product_variants')
+          .select('id, sku, package_size, price_rwf, products(name)')
+          .order('sku');
+        if (variantData && variantData.length > 0) {
+          setVariants(
+            variantData.map((v: any) => ({
+              id: v.id,
+              productName: v.products?.name || 'Feed Product',
+              sku: v.sku,
+              packageSize: v.package_size,
+              priceRwf: v.price_rwf,
+              availableStock: 100,
+            }))
+          );
+        }
+
+        // Fetch active production batches for lot/batch trace
+        const { data: batchData } = await supabase
+          .from('production_batches')
+          .select('id, batch_number, variant_id, actual_yield_kg')
+          .order('batch_number', { ascending: false });
+        if (batchData && batchData.length > 0) {
+          setBatches(
+            batchData.map((b: any) => ({
+              id: b.id,
+              batchNumber: b.batch_number,
+              variantId: b.variant_id,
+              availableQty: b.actual_yield_kg || 0,
+            }))
+          );
         }
 
         const { data: ordersData, error: ordersErr } = await supabase
@@ -372,15 +197,13 @@ export default function OrdersPage() {
           const uniqueLocal = mappedLocal.filter((lo) => !serverOrderNums.has(lo.orderNumber));
           combined = [...uniqueLocal, ...mappedServer];
         } else {
-          // If no server rows yet, show local orders first, then baseline reference orders
-          const localOrderNums = new Set(mappedLocal.map((lo) => lo.orderNumber));
-          const uniqueInitial = INITIAL_ORDERS.filter((io) => !localOrderNums.has(io.orderNumber));
-          combined = [...mappedLocal, ...uniqueInitial];
+          // If no server rows yet, show local orders
+          combined = mappedLocal;
         }
 
         setOrders(combined);
       } catch (err) {
-        console.warn('Using baseline customer & order reference data:', err);
+        console.warn('Error loading orders ledger:', err);
       }
     };
 

@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import {
   Package,
@@ -13,12 +14,82 @@ import {
   Users,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../lib/supabase';
+import { getLocalCustomerOrders } from '../lib/orderService';
 import OwnerDashboardView from '../components/dashboard/OwnerDashboardView';
 import DepotManagerDashboardView from '../components/dashboard/DepotManagerDashboardView';
+
+interface RecentTransaction {
+  id: string;
+  orderNumber: string;
+  title: string;
+  amountRwf: number;
+}
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const profile = user?.profile;
+
+  const [todaySalesTotal, setTodaySalesTotal] = useState(0);
+  const [todaySalesCount, setTodaySalesCount] = useState(0);
+  const [batchesCount, setBatchesCount] = useState(0);
+  const [recentTransactions, setRecentTransactions] = useState<RecentTransaction[]>([]);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const { data: orders } = await supabase
+          .from('sales_orders')
+          .select('id, order_number, total_amount_rwf, order_date, customers(name)')
+          .order('order_date', { ascending: false })
+          .limit(5);
+
+        const local = getLocalCustomerOrders();
+        let total = 0;
+        let count = 0;
+        const txList: RecentTransaction[] = [];
+
+        if (orders) {
+          count += orders.length;
+          orders.forEach((o: any) => {
+            total += o.total_amount_rwf || 0;
+            txList.push({
+              id: o.id,
+              orderNumber: o.order_number,
+              title: `${o.customers?.name || 'Customer'} — Feed Order`,
+              amountRwf: o.total_amount_rwf || 0,
+            });
+          });
+        }
+
+        (local || []).forEach((loc: any) => {
+          if (!txList.some((t) => t.orderNumber === loc.orderNumber)) {
+            count += 1;
+            total += loc.totalAmountRwf || 0;
+            txList.push({
+              id: loc.id,
+              orderNumber: loc.orderNumber,
+              title: `${loc.printableOrder?.customerName || 'Online Customer'} — Web Order`,
+              amountRwf: loc.totalAmountRwf || 0,
+            });
+          }
+        });
+
+        setTodaySalesTotal(total);
+        setTodaySalesCount(count);
+        setRecentTransactions(txList.slice(0, 5));
+
+        const { count: bCount } = await supabase
+          .from('production_batches')
+          .select('*', { count: 'exact', head: true });
+        if (bCount !== null) setBatchesCount(bCount);
+      } catch (err) {
+        console.warn('Dashboard data fetch error:', err);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
 
   // 1. Customers / Farmers should see their customer portal
   if (profile?.role === 'public') {
@@ -72,8 +143,12 @@ export default function DashboardPage() {
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 Today&apos;s Sales
               </p>
-              <p className="mt-1.5 text-2xl font-black text-[#2E7D32]">RWF 268,000</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">2 sales transactions</p>
+              <p className="mt-1.5 text-2xl font-black text-[#2E7D32]">
+                RWF {todaySalesTotal.toLocaleString()}
+              </p>
+              <p className="text-[11px] text-gray-400 mt-0.5">
+                {todaySalesCount} sales recorded
+              </p>
             </div>
             <div className="rounded-lg p-3 bg-green-50 text-[#2E7D32] group-hover:bg-[#2E7D32] group-hover:text-white transition">
               <DollarSign size={24} />
@@ -88,10 +163,10 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Low Stock Warning
+                Stock Status
               </p>
-              <p className="mt-1.5 text-2xl font-bold text-amber-600">1 Item</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">BSM-25KG below reorder</p>
+              <p className="mt-1.5 text-2xl font-bold text-gray-900">Ledger</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">Live depot counts</p>
             </div>
             <div className="rounded-lg p-3 bg-amber-50 text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition">
               <AlertTriangle size={24} />
@@ -108,8 +183,8 @@ export default function DashboardPage() {
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 Production Runs
               </p>
-              <p className="mt-1.5 text-2xl font-bold text-blue-600">4 Batches</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">3 completed, 1 in progress</p>
+              <p className="mt-1.5 text-2xl font-bold text-blue-600">{batchesCount} Batches</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">Milling batch records</p>
             </div>
             <div className="rounded-lg p-3 bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition">
               <Factory size={24} />
@@ -242,35 +317,23 @@ export default function DashboardPage() {
           </div>
 
           <div className="space-y-3 text-xs">
-            <div className="flex items-center justify-between p-2.5 rounded-lg bg-gray-50 border border-gray-100">
-              <div>
-                <span className="font-bold text-gray-900 block">Sale ORD-20261017-002</span>
-                <span className="text-gray-500">
-                  Duterimbere Poultry Cooperative — 10x Layer Mash (50kg)
-                </span>
+            {recentTransactions.length === 0 ? (
+              <div className="p-6 text-center text-gray-400">
+                <ClipboardList className="w-8 h-8 text-gray-300 mx-auto mb-1.5" />
+                <p className="font-medium text-gray-600">No field transactions recorded yet.</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">Counter sales and dispatches will display here.</p>
               </div>
-              <span className="font-black text-gray-900">RWF 220,000</span>
-            </div>
-
-            <div className="flex items-center justify-between p-2.5 rounded-lg bg-gray-50 border border-gray-100">
-              <div>
-                <span className="font-bold text-gray-900 block">Milling Batch B-20261017-001</span>
-                <span className="text-gray-500">
-                  Completed 978 kg yield (20 bags of Broiler Starter)
-                </span>
-              </div>
-              <span className="font-bold text-green-700">97.8% Yield</span>
-            </div>
-
-            <div className="flex items-center justify-between p-2.5 rounded-lg bg-gray-50 border border-gray-100">
-              <div>
-                <span className="font-bold text-gray-900 block">Sale ORD-20261017-001</span>
-                <span className="text-gray-500">
-                  Jean-Paul Habimana — 2x Broiler Starter (50kg)
-                </span>
-              </div>
-              <span className="font-black text-gray-900">RWF 48,000</span>
-            </div>
+            ) : (
+              recentTransactions.map((tx) => (
+                <div key={tx.id} className="flex items-center justify-between p-2.5 rounded-lg bg-gray-50 border border-gray-100">
+                  <div>
+                    <span className="font-bold text-gray-900 block">Sale {tx.orderNumber}</span>
+                    <span className="text-gray-500">{tx.title}</span>
+                  </div>
+                  <span className="font-black text-gray-900">RWF {tx.amountRwf.toLocaleString()}</span>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

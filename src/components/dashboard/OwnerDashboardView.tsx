@@ -28,38 +28,13 @@ interface PendingApproval {
   status: 'pending' | 'approved' | 'rejected';
 }
 
-const INITIAL_APPROVALS: PendingApproval[] = [
-  {
-    id: 'app-01',
-    reference: 'PO-2026-004',
-    title: 'Whole Grain Maize Procurement (15 Metric Tonnes)',
-    category: 'purchase_order',
-    amountRwf: 4800000,
-    requestedBy: 'Vedaste Zirimwabagabo (Depot Manager)',
-    date: '2026-10-18',
-    details: 'Bulk raw grain for next week broiler & layer mash production batches.',
-    status: 'pending',
-  },
-  {
-    id: 'app-02',
-    reference: 'EXP-2026-019',
-    title: 'Hammermill Motor Rewinding & Screen Replacement',
-    category: 'operational_expense',
-    amountRwf: 350000,
-    requestedBy: 'Vedaste Zirimwabagabo (Depot Manager)',
-    date: '2026-10-17',
-    details: 'Emergency maintenance on primary grinder to prevent milling downtime.',
-    status: 'pending',
-  },
-];
-
 export default function OwnerDashboardView() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'overview' | 'inquiries'>('overview');
-  const [approvals, setApprovals] = useState<PendingApproval[]>(INITIAL_APPROVALS);
+  const [approvals, setApprovals] = useState<PendingApproval[]>([]);
   const [approvalNotice, setApprovalNotice] = useState<string | null>(null);
 
-  const ownerName = user?.profile?.displayName || 'Aline Mugisha';
+  const ownerName = user?.profile?.displayName || user?.email?.split('@')[0] || 'Business Owner';
 
   const handleDecision = (id: string, decision: 'approved' | 'rejected') => {
     setApprovals((prev) =>
@@ -222,7 +197,14 @@ export default function OwnerDashboardView() {
           </div>
 
           <div className="space-y-4">
-            {approvals.map((item) => (
+            {approvals.length === 0 ? (
+              <div className="py-8 text-center text-gray-400">
+                <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+                <p className="text-sm font-semibold text-gray-700">All clear — no pending approvals</p>
+                <p className="text-xs text-gray-400 mt-0.5">High-value purchase orders and expenses will appear here for owner authorization.</p>
+              </div>
+            ) : (
+              approvals.map((item) => (
               <div
                 key={item.id}
                 className="p-4 rounded-2xl border border-gray-200 bg-gray-50/60 hover:bg-gray-50 transition space-y-2.5"
@@ -281,7 +263,7 @@ export default function OwnerDashboardView() {
                   </div>
                 )}
               </div>
-            ))}
+            )))}
           </div>
         </div>
 

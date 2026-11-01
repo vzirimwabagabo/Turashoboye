@@ -18,72 +18,9 @@ interface StockRow {
   stock_status: 'adequate' | 'low_stock' | 'out_of_stock';
 }
 
-const SAMPLE_STOCK_DATA: StockRow[] = [
-  {
-    variant_id: 's1',
-    product_name: 'Turashoboye Broiler Starter Mash',
-    sku: 'BSM-50KG',
-    package_size: '50kg Bag',
-    unit_abbr: 'bag_50kg',
-    location_name: 'Mahama Primary Feed Depot',
-    physical_stock_qty: 120,
-    available_to_sell_qty: 120,
-    reorder_threshold: 20,
-    stock_status: 'adequate',
-  },
-  {
-    variant_id: 's2',
-    product_name: 'Turashoboye Broiler Starter Mash',
-    sku: 'BSM-25KG',
-    package_size: '25kg Bag',
-    unit_abbr: 'bag_25kg',
-    location_name: 'Mahama Primary Feed Depot',
-    physical_stock_qty: 15,
-    available_to_sell_qty: 15,
-    reorder_threshold: 25,
-    stock_status: 'low_stock',
-  },
-  {
-    variant_id: 's3',
-    product_name: 'Turashoboye Layer Complete Mash',
-    sku: 'LCM-50KG',
-    package_size: '50kg Bag',
-    unit_abbr: 'bag_50kg',
-    location_name: 'Mahama Primary Feed Depot',
-    physical_stock_qty: 85,
-    available_to_sell_qty: 60, // 25 bags currently held under QA inspection
-    reorder_threshold: 15,
-    stock_status: 'adequate',
-  },
-  {
-    variant_id: 's4',
-    product_name: 'Turashoboye Pig Grower Feed',
-    sku: 'PGF-50KG',
-    package_size: '50kg Bag',
-    unit_abbr: 'bag_50kg',
-    location_name: 'Mahama Primary Feed Depot',
-    physical_stock_qty: 0,
-    available_to_sell_qty: 0,
-    reorder_threshold: 10,
-    stock_status: 'out_of_stock',
-  },
-  {
-    variant_id: 's5',
-    product_name: 'Feed-Grade Soya Bean Meal',
-    sku: 'SOYA-50KG',
-    package_size: '50kg Bag',
-    unit_abbr: 'bag_50kg',
-    location_name: 'Mahama Primary Feed Depot',
-    physical_stock_qty: 240,
-    available_to_sell_qty: 240,
-    reorder_threshold: 40,
-    stock_status: 'adequate',
-  },
-];
-
 export default function InventoryPage() {
   const { user } = useAuth();
-  const [stock, setStock] = useState<StockRow[]>(SAMPLE_STOCK_DATA);
+  const [stock, setStock] = useState<StockRow[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [adjustmentModalOpen, setAdjustmentModalOpen] = useState(false);
@@ -97,7 +34,7 @@ export default function InventoryPage() {
       try {
         setLoading(true);
         const { data, error } = await supabase.from('view_stock_on_hand').select('*');
-        if (!error && data && data.length > 0) {
+        if (!error && data) {
           setStock(data as StockRow[]);
         }
       } catch (err) {

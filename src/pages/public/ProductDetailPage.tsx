@@ -24,90 +24,10 @@ interface DetailProduct {
   }[];
 }
 
-const SAMPLE_DETAILS: Record<string, DetailProduct> = {
-  'broiler-starter-mash': {
-    id: 'sample-p1',
-    name: 'Turashoboye Broiler Starter Mash',
-    slug: 'broiler-starter-mash',
-    description: 'A finely ground, highly digestible starter feed specifically formulated for fast-growing broiler chicks during their critical first 21 days. Contains quality soya meal, maize, essential vitamins, and phosphorus to build strong skeletal frames and early immune vigor.',
-    target_animal: 'Broiler Chicks (0 to 3 Weeks)',
-    category: 'Poultry Feed',
-    feed_type: 'Complete Starter Mash',
-    nutritional_focus: 'Min 21% Crude Protein, Balanced Lysine & Methionine',
-    image_url: 'https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?auto=format&fit=crop&w=800&q=80',
-    variants: [
-      { id: 'v1-1', sku: 'BSM-50KG', package_size: '50kg Bag', price_rwf: 38000, availability: 'In Stock' },
-      { id: 'v1-2', sku: 'BSM-25KG', package_size: '25kg Bag', price_rwf: 19500, availability: 'In Stock' },
-      { id: 'v1-3', sku: 'BSM-10KG', package_size: '10kg Bag', price_rwf: 8200, availability: 'In Stock' },
-    ],
-  },
-  'layer-complete-mash': {
-    id: 'sample-p2',
-    name: 'Turashoboye Layer Complete Mash',
-    slug: 'layer-complete-mash',
-    description: 'Complete layer ration engineered to optimize peak laying percentage, yolk pigmentation, and eggshell rigidity in commercial and dual-purpose laying hens. Includes bioavailable calcium carbonate and trace minerals.',
-    target_animal: 'Laying Hens (From 18 Weeks Onward)',
-    category: 'Poultry Feed',
-    feed_type: 'Complete Layer Mash',
-    nutritional_focus: 'High Calcium (3.8-4.2%), 16.5% Crude Protein',
-    image_url: 'https://images.unsplash.com/photo-1516467508483-a7212febe31a?auto=format&fit=crop&w=800&q=80',
-    variants: [
-      { id: 'v2-1', sku: 'LCM-50KG', package_size: '50kg Bag', price_rwf: 35000, availability: 'In Stock' },
-      { id: 'v2-2', sku: 'LCM-25KG', package_size: '25kg Bag', price_rwf: 18000, availability: 'In Stock' },
-    ],
-  },
-  'pig-grower-feed': {
-    id: 'sample-p3',
-    name: 'Turashoboye Pig Grower Feed',
-    slug: 'pig-grower-feed',
-    description: 'Balanced protein and carbohydrate feed ration for growing pigs from 20kg to finishing weight. High palatability and optimal fiber levels promote gut health and rapid feed conversion ratio (FCR).',
-    target_animal: 'Growing Pigs (Weaners & Fatteners)',
-    category: 'Pig Feed',
-    feed_type: 'Grower Mash',
-    nutritional_focus: '16% Crude Protein, Digestible Energy 3,100 kcal/kg',
-    image_url: 'https://images.unsplash.com/photo-1516467508483-a7212febe31a?auto=format&fit=crop&w=800&q=80',
-    variants: [
-      { id: 'v3-1', sku: 'PGF-50KG', package_size: '50kg Bag', price_rwf: 32000, availability: 'In Stock' },
-      { id: 'v3-2', sku: 'PGF-25KG', package_size: '25kg Bag', price_rwf: 16500, availability: 'In Stock' },
-    ],
-  },
-  'dairy-cattle-meal': {
-    id: 'sample-p4',
-    name: 'Turashoboye Dairy Cattle Meal',
-    slug: 'dairy-cattle-meal',
-    description: 'Dairy cattle concentrate formulated with energy grains, bypass protein, and essential rumen-buffering minerals to support dairy cows during lactation and maintain body condition scores.',
-    target_animal: 'Lactating Dairy Cows & Beef Cattle',
-    category: 'Cattle & Dairy Feed',
-    feed_type: 'Supplementary Dairy Concentrate',
-    nutritional_focus: '17% Crude Protein, Balanced Starch & Rumen Minerals',
-    image_url: 'https://images.unsplash.com/photo-1546445317-29f4545e9d53?auto=format&fit=crop&w=800&q=80',
-    variants: [
-      { id: 'v4-1', sku: 'DCM-50KG', package_size: '50kg Bag', price_rwf: 28000, availability: 'In Stock' },
-    ],
-  },
-  'milled-soya-meal': {
-    id: 'sample-p5',
-    name: 'Milled Soya Bean Meal (Feed Grade)',
-    slug: 'milled-soya-meal',
-    description: 'Roasted and milled high-protein soya meal (min 44% crude protein) for on-farm mixing and custom rations.',
-    target_animal: 'Multi-Species',
-    category: 'Raw Ingredients',
-    feed_type: 'Raw Protein Ingredient',
-    nutritional_focus: 'Min 44% Crude Protein, Low Moisture (<10%)',
-    image_url: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=800&q=80',
-    variants: [
-      { id: 'v5-1', sku: 'SOYA-50KG', package_size: '50kg Bag', price_rwf: 42000, availability: 'In Stock' },
-      { id: 'v5-2', sku: 'SOYA-25KG', package_size: '25kg Bag', price_rwf: 21500, availability: 'In Stock' },
-    ],
-  },
-};
-
-
 export default function ProductDetailPage() {
   const { slug } = useParams<{ slug: string }>();
-  const [product, setProduct] = useState<DetailProduct>(
-    (slug && SAMPLE_DETAILS[slug]) || SAMPLE_DETAILS['broiler-starter-mash']
-  );
+  const [product, setProduct] = useState<DetailProduct | null>(null);
+  const [loading, setLoading] = useState(true);
   const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
   const [orderModalOpen, setOrderModalOpen] = useState(false);
 
@@ -115,6 +35,7 @@ export default function ProductDetailPage() {
     if (!slug) return;
     const fetchProduct = async () => {
       try {
+        setLoading(true);
         const { data, error } = await supabase
           .from('products')
           .select(`
@@ -163,12 +84,35 @@ export default function ProductDetailPage() {
           });
         }
       } catch (err) {
-        console.warn('Using baseline feed details', err);
+        console.warn('Error fetching feed product detail:', err);
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchProduct();
   }, [slug]);
+
+  if (loading) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 py-20 text-center text-gray-500">
+        Loading product information...
+      </div>
+    );
+  }
+
+  if (!product) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 py-20 text-center text-gray-500">
+        <Package className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+        <h2 className="text-lg font-bold text-gray-800">Product Not Found</h2>
+        <p className="text-xs text-gray-400 mt-1">The requested animal feed product could not be found.</p>
+        <Link to="/catalogue" className="mt-4 inline-block text-xs font-semibold text-[#2E7D32]">
+          Back to Catalogue &rarr;
+        </Link>
+      </div>
+    );
+  }
 
   const currentVariant = product.variants[selectedVariantIndex] || product.variants[0];
 

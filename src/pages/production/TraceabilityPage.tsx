@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Search, ShieldAlert, Layers, Users, Truck } from 'lucide-react';
+import { Search, ShieldAlert, Layers, Users, Truck, Loader2 } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 
 interface BackwardTrace {
   batch_number: string;
@@ -39,79 +40,85 @@ interface ForwardTrace {
   }[];
 }
 
-const SAMPLE_BACKWARD: BackwardTrace = {
-  batch_number: 'BATCH-20261016-001',
-  product_name: 'Turashoboye Broiler Starter Mash (50kg)',
-  milling_date: '2026-10-16',
-  operator: 'Jean Claude Ndayisaba',
-  status: 'completed',
-  ingredients_consumed: [
-    {
-      lot_number: 'LOT-MAIZE-20261016-02',
-      ingredient: 'Yellow Feed Maize (Cleaned)',
-      supplier: 'Kirehe Grain Aggregators Ltd',
-      quantity_used: 1120,
-      unit: 'kg',
-      receipt_date: '2026-10-16',
-    },
-    {
-      lot_number: 'LOT-SOYA-20261015-01',
-      ingredient: 'Raw Soya Beans (Grain Grade)',
-      supplier: 'Eastern Agribusiness Co-operative Ltd',
-      quantity_used: 680,
-      unit: 'kg',
-      receipt_date: '2026-10-15',
-    },
-    {
-      lot_number: 'LOT-PREMIX-20261010-01',
-      ingredient: 'Broiler Starter Vitamin-Mineral Premix 2.5%',
-      supplier: 'Kigali Veterinary & Feed Supplements Ltd',
-      quantity_used: 50,
-      unit: 'kg',
-      receipt_date: '2026-10-10',
-    },
-  ],
-};
-
-const SAMPLE_FORWARD: ForwardTrace = {
-  lot_number: 'LOT-SOYA-20261015-01',
-  ingredient: 'Raw Soya Beans (Grain Grade)',
-  supplier: 'Eastern Agribusiness Co-operative Ltd',
-  receipt_date: '2026-10-15',
-  initial_quantity: 5000,
-  remaining_stock: 4320,
-  batches_produced: [
-    {
-      batch_number: 'BATCH-20261016-001',
-      product_name: 'Turashoboye Broiler Starter Mash (50kg)',
-      output_quantity: 1960,
-      milling_date: '2026-10-16',
-      dispatches: [
-        {
-          order_number: 'ORD-20261016-012',
-          customer_name: 'Gatore Poultry Farmers Co-operative',
-          customer_phone: '+250 788 999 888',
-          quantity_bags: 20,
-          order_date: '2026-10-16',
-        },
-        {
-          order_number: 'ORD-20261017-004',
-          customer_name: 'Alexis Mugisha (Mahama Sector)',
-          customer_phone: '+250 788 777 666',
-          quantity_bags: 5,
-          order_date: '2026-10-17',
-        },
-      ],
-    },
-  ],
-};
-
 export default function TraceabilityPage() {
   const [activeTab, setActiveTab] = useState<'backward' | 'forward'>('backward');
-  const [query, setQuery] = useState('BATCH-20261016-001');
+  const [query, setQuery] = useState('');
+  const [backwardTrace, setBackwardTrace] = useState<BackwardTrace | null>(null);
+  const [forwardTrace, setForwardTrace] = useState<ForwardTrace | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [searching, setSearching] = useState(false);
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
+    const q = query.trim();
+    if (!q) return;
+
+    setHasSearched(true);
+    setSearching(true);
+
+    try {
+      if (activeTab === 'backward') {
+        const { data, error } = await supabase
+          .from('production_batches')
+          .select(`
+            id,
+            batch_number,
+            status,
+            created_at,
+            product_variants(products(name))
+          `)
+          .ilike('batch_number', `%${q}%`)
+          .limit(1)
+          .maybeSingle();
+
+        if (error || !data) {
+          setBackwardTrace(null);
+        } else {
+          setBackwardTrace({
+            batch_number: data.batch_number,
+            product_name: (data as any).product_variants?.products?.name || 'Feed Product',
+            milling_date: data.created_at ? data.created_at.split('T')[0] : 'N/A',
+            operator: 'Depot Team',
+            status: data.status || 'completed',
+            ingredients_consumed: [],
+          });
+        }
+      } else {
+        const { data, error } = await supabase
+          .from('ingredient_lots')
+          .select(`
+            id,
+            lot_number,
+            received_quantity,
+            created_at,
+            suppliers(name),
+            product_variants(products(name))
+          `)
+          .ilike('lot_number', `%${q}%`)
+          .limit(1)
+          .maybeSingle();
+
+        if (error || !data) {
+          setForwardTrace(null);
+        } else {
+          setForwardTrace({
+            lot_number: data.lot_number,
+            ingredient: (data as any).product_variants?.products?.name || 'Raw Material',
+            supplier: (data as any).suppliers?.name || 'Local Supplier',
+            receipt_date: data.created_at ? data.created_at.split('T')[0] : 'N/A',
+            initial_quantity: data.received_quantity || 0,
+            remaining_stock: data.received_quantity || 0,
+            batches_produced: [],
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('Trace query error:', err);
+      if (activeTab === 'backward') setBackwardTrace(null);
+      else setForwardTrace(null);
+    } finally {
+      setSearching(false);
+    }
   };
 
   return (
@@ -132,7 +139,8 @@ export default function TraceabilityPage() {
           <button
             onClick={() => {
               setActiveTab('backward');
-              setQuery('BATCH-20261016-001');
+              setQuery('');
+              setHasSearched(false);
             }}
             className={`pb-3 text-sm font-bold border-b-2 transition-colors ${
               activeTab === 'backward'
@@ -145,7 +153,8 @@ export default function TraceabilityPage() {
           <button
             onClick={() => {
               setActiveTab('forward');
-              setQuery('LOT-SOYA-20261015-01');
+              setQuery('');
+              setHasSearched(false);
             }}
             className={`pb-3 text-sm font-bold border-b-2 transition-colors ${
               activeTab === 'forward'
@@ -166,7 +175,7 @@ export default function TraceabilityPage() {
               onChange={(e) => setQuery(e.target.value)}
               placeholder={
                 activeTab === 'backward'
-                  ? 'Enter Batch Code (e.g. BATCH-20261016-001)...'
+                  ? 'Enter Batch Code (e.g. B-20261016-001)...'
                   : 'Enter Ingredient Lot Number (e.g. LOT-SOYA-20261015-01)...'
               }
               className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]"
@@ -174,8 +183,10 @@ export default function TraceabilityPage() {
           </div>
           <button
             type="submit"
-            className="px-5 py-2.5 rounded-xl bg-[#2E7D32] hover:bg-[#256b29] text-white text-sm font-semibold shadow-xs transition-colors"
+            disabled={searching}
+            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-[#2E7D32] hover:bg-[#256b29] text-white text-sm font-semibold shadow-xs transition-colors disabled:opacity-50"
           >
+            {searching ? <Loader2 size={16} className="animate-spin" /> : null}
             Run Trace
           </button>
         </form>
@@ -183,140 +194,164 @@ export default function TraceabilityPage() {
 
       {/* Trace Results */}
       {activeTab === 'backward' ? (
-        <div className="space-y-6">
-          {/* Batch Summary Card */}
-          <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <span className="text-xs font-bold text-emerald-800 uppercase tracking-wide">
-                Batch Trace Target
-              </span>
-              <h2 className="text-xl font-extrabold text-gray-900 mt-0.5">
-                {SAMPLE_BACKWARD.batch_number}
-              </h2>
-              <p className="text-sm text-gray-600 mt-1">
-                Product: <strong>{SAMPLE_BACKWARD.product_name}</strong>
-              </p>
-              <div className="flex gap-4 text-xs text-gray-400 mt-2">
-                <span>Milling Date: {SAMPLE_BACKWARD.milling_date}</span>
-                <span>Operator: {SAMPLE_BACKWARD.operator}</span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
-                Status: Completed
-              </span>
-            </div>
-          </div>
-
-          {/* Consumed Ingredient Lots Tree */}
-          <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-xs space-y-4">
-            <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-              <Layers size={18} className="text-[#2E7D32]" />
-              Raw Material Lots Consumed in this Batch
-            </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {SAMPLE_BACKWARD.ingredients_consumed.map((ing) => (
-                <div
-                  key={ing.lot_number}
-                  className="p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-2 text-xs"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono font-bold text-gray-900">{ing.lot_number}</span>
-                    <span className="px-2 py-0.5 rounded bg-emerald-100 text-[#2E7D32] font-bold">
-                      {ing.quantity_used} {ing.unit}
-                    </span>
-                  </div>
-                  <p className="font-semibold text-gray-800 text-sm">{ing.ingredient}</p>
-                  <p className="text-gray-500">Supplier: {ing.supplier}</p>
-                  <p className="text-gray-400">Received at Depot: {ing.receipt_date}</p>
+        backwardTrace ? (
+          <div className="space-y-6">
+            <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <span className="text-xs font-bold text-emerald-800 uppercase tracking-wide">
+                  Batch Trace Target
+                </span>
+                <h2 className="text-xl font-extrabold text-gray-900 mt-0.5">
+                  {backwardTrace.batch_number}
+                </h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Product: <strong>{backwardTrace.product_name}</strong>
+                </p>
+                <div className="flex gap-4 text-xs text-gray-400 mt-2">
+                  <span>Milling Date: {backwardTrace.milling_date}</span>
+                  <span>Operator: {backwardTrace.operator}</span>
                 </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {/* Ingredient Lot Card */}
-          <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <span className="text-xs font-bold text-blue-800 uppercase tracking-wide">
-                Ingredient Lot Target
-              </span>
-              <h2 className="text-xl font-extrabold text-gray-900 mt-0.5">
-                {SAMPLE_FORWARD.lot_number}
-              </h2>
-              <p className="text-sm text-gray-600 mt-1">
-                Raw Material: <strong>{SAMPLE_FORWARD.ingredient}</strong> ({SAMPLE_FORWARD.supplier})
-              </p>
-              <div className="flex gap-4 text-xs text-gray-500 mt-2">
-                <span>Received: {SAMPLE_FORWARD.initial_quantity.toLocaleString()} kg on {SAMPLE_FORWARD.receipt_date}</span>
-                <span className="font-bold text-emerald-800">
-                  Remaining in Depot: {SAMPLE_FORWARD.remaining_stock.toLocaleString()} kg
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                  Status: {backwardTrace.status}
                 </span>
               </div>
             </div>
 
-            <button
-              onClick={() => alert(`Quality hold flagged for ${SAMPLE_FORWARD.lot_number}. Inventory withheld from production.`)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-xs transition-colors"
-            >
-              <ShieldAlert size={15} />
-              Quarantine / Hold Lot
-            </button>
+            <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-xs space-y-4">
+              <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                <Layers size={18} className="text-[#2E7D32]" />
+                Raw Material Lots Consumed in this Batch
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {backwardTrace.ingredients_consumed.map((ing) => (
+                  <div
+                    key={ing.lot_number}
+                    className="p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-2 text-xs"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono font-bold text-gray-900">{ing.lot_number}</span>
+                      <span className="px-2 py-0.5 rounded bg-emerald-100 text-[#2E7D32] font-bold">
+                        {ing.quantity_used} {ing.unit}
+                      </span>
+                    </div>
+                    <p className="font-semibold text-gray-800 text-sm">{ing.ingredient}</p>
+                    <p className="text-gray-500">Supplier: {ing.supplier}</p>
+                    <p className="text-gray-400">Received at Depot: {ing.receipt_date}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-
-          {/* Downstream Dispatches Tree */}
-          <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-xs space-y-5">
-            <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-              <Truck size={18} className="text-[#2E7D32]" />
-              Downstream Production Runs & Customer Dispatches
+        ) : (
+          <div className="bg-white border border-gray-200 rounded-3xl p-12 text-center text-gray-400">
+            <Layers className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+            <h3 className="text-base font-bold text-gray-700">
+              {hasSearched ? `No records found for "${query}"` : 'Backward Trace Lookup'}
             </h3>
-
-            {SAMPLE_FORWARD.batches_produced.map((bp) => (
-              <div key={bp.batch_number} className="p-5 bg-gray-50 rounded-2xl border border-gray-200 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-200 pb-3">
-                  <div>
-                    <span className="font-mono font-bold text-gray-900 text-sm">
-                      {bp.batch_number}
-                    </span>
-                    <span className="text-xs text-gray-600 ml-2">
-                      ({bp.product_name} — {bp.output_quantity.toLocaleString()} kg yielded)
-                    </span>
-                  </div>
-                  <span className="text-xs text-gray-400">Produced on {bp.milling_date}</span>
-                </div>
-
-                <div className="space-y-2">
-                  <span className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
-                    <Users size={14} className="text-[#2E7D32]" /> Dispatched Customer Orders:
+            <p className="text-xs text-gray-500 mt-1 max-w-md mx-auto">
+              {hasSearched
+                ? 'Check the batch number and verify that ingredient lots have been linked to this batch.'
+                : 'Enter a finished feed batch number above to trace raw materials, suppliers, and milling logs.'}
+            </p>
+          </div>
+        )
+      ) : (
+        forwardTrace ? (
+          <div className="space-y-6">
+            <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <span className="text-xs font-bold text-blue-800 uppercase tracking-wide">
+                  Ingredient Lot Target
+                </span>
+                <h2 className="text-xl font-extrabold text-gray-900 mt-0.5">
+                  {forwardTrace.lot_number}
+                </h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Raw Material: <strong>{forwardTrace.ingredient}</strong> ({forwardTrace.supplier})
+                </p>
+                <div className="flex gap-4 text-xs text-gray-500 mt-2">
+                  <span>Received: {forwardTrace.initial_quantity.toLocaleString()} kg on {forwardTrace.receipt_date}</span>
+                  <span className="font-bold text-emerald-800">
+                    Remaining in Depot: {forwardTrace.remaining_stock.toLocaleString()} kg
                   </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {bp.dispatches.map((disp) => (
-                      <div
-                        key={disp.order_number}
-                        className="bg-white p-3.5 rounded-xl border border-gray-200 text-xs space-y-1 shadow-2xs"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-mono font-semibold text-gray-900">
-                            {disp.order_number}
-                          </span>
-                          <span className="font-bold text-[#2E7D32] bg-emerald-50 px-2 py-0.5 rounded">
-                            {disp.quantity_bags} Bags (1,000 kg)
-                          </span>
-                        </div>
-                        <p className="font-semibold text-gray-800">{disp.customer_name}</p>
-                        <p className="text-gray-500">Contact: {disp.customer_phone}</p>
-                        <p className="text-gray-400 text-[11px]">Dispatched: {disp.order_date}</p>
-                      </div>
-                    ))}
-                  </div>
                 </div>
               </div>
-            ))}
+
+              <button
+                onClick={() => alert(`Quality hold flagged for ${forwardTrace.lot_number}. Inventory withheld from production.`)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-xs transition-colors"
+              >
+                <ShieldAlert size={15} />
+                Quarantine / Hold Lot
+              </button>
+            </div>
+
+            <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-xs space-y-5">
+              <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                <Truck size={18} className="text-[#2E7D32]" />
+                Downstream Production Runs & Customer Dispatches
+              </h3>
+
+              {forwardTrace.batches_produced.map((bp) => (
+                <div key={bp.batch_number} className="p-5 bg-gray-50 rounded-2xl border border-gray-200 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-200 pb-3">
+                    <div>
+                      <span className="font-mono font-bold text-gray-900 text-sm">
+                        {bp.batch_number}
+                      </span>
+                      <span className="text-xs text-gray-600 ml-2">
+                        ({bp.product_name} — {bp.output_quantity.toLocaleString()} kg yielded)
+                      </span>
+                    </div>
+                    <span className="text-xs text-gray-400">Produced on {bp.milling_date}</span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <span className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <Users size={14} className="text-[#2E7D32]" /> Dispatched Customer Orders:
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {bp.dispatches.map((disp) => (
+                        <div
+                          key={disp.order_number}
+                          className="bg-white p-3.5 rounded-xl border border-gray-200 text-xs space-y-1 shadow-2xs"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono font-semibold text-gray-900">
+                              {disp.order_number}
+                            </span>
+                            <span className="font-bold text-[#2E7D32] bg-emerald-50 px-2 py-0.5 rounded">
+                              {disp.quantity_bags} Bags
+                            </span>
+                          </div>
+                          <p className="font-semibold text-gray-800">{disp.customer_name}</p>
+                          <p className="text-gray-500">Contact: {disp.customer_phone}</p>
+                          <p className="text-gray-400 text-[11px]">Dispatched: {disp.order_date}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="bg-white border border-gray-200 rounded-3xl p-12 text-center text-gray-400">
+            <Truck className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+            <h3 className="text-base font-bold text-gray-700">
+              {hasSearched ? `No records found for "${query}"` : 'Forward Trace Lookup'}
+            </h3>
+            <p className="text-xs text-gray-500 mt-1 max-w-md mx-auto">
+              {hasSearched
+                ? 'Check the ingredient lot number and ensure supplier receipts have been registered.'
+                : 'Enter a supplier lot identifier above to trace affected batches, stock balance, and customer dispatches.'}
+            </p>
+          </div>
+        )
       )}
     </div>
   );

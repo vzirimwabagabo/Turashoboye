@@ -25,83 +25,9 @@ interface PublicProduct {
   variants: PublicVariant[];
 }
 
-// Representative sample products for immediate demonstration and development
-const FALLBACK_PRODUCTS: PublicProduct[] = [
-  {
-    id: 'sample-p1',
-    name: 'Turashoboye Broiler Starter Mash',
-    slug: 'broiler-starter-mash',
-    description: 'High-protein starter mash (21-22% crude protein) formulated with soya meal and essential minerals for broiler chicks aged 0 to 3 weeks.',
-    target_animal: 'Poultry (Broilers)',
-    category_slug: 'poultry-feed',
-    category_name: 'Poultry Feed',
-    image_url: 'https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?auto=format&fit=crop&w=800&q=80',
-    variants: [
-      { id: 'v1-1', sku: 'BSM-50KG', package_size: '50kg Bag', price_rwf: 38000 },
-      { id: 'v1-2', sku: 'BSM-25KG', package_size: '25kg Bag', price_rwf: 19500 },
-      { id: 'v1-3', sku: 'BSM-10KG', package_size: '10kg Bag', price_rwf: 8200 },
-    ],
-  },
-  {
-    id: 'sample-p2',
-    name: 'Turashoboye Layer Complete Mash',
-    slug: 'layer-complete-mash',
-    description: 'Fortified with calcium, phosphorus, and vitamin premix to sustain strong eggshell quality and high peak lay percentages in laying hens.',
-    target_animal: 'Poultry (Layers)',
-    category_slug: 'poultry-feed',
-    category_name: 'Poultry Feed',
-    image_url: 'https://images.unsplash.com/photo-1516467508483-a7212febe31a?auto=format&fit=crop&w=800&q=80',
-    variants: [
-      { id: 'v2-1', sku: 'LCM-50KG', package_size: '50kg Bag', price_rwf: 35000 },
-      { id: 'v2-2', sku: 'LCM-25KG', package_size: '25kg Bag', price_rwf: 18000 },
-    ],
-  },
-  {
-    id: 'sample-p3',
-    name: 'Turashoboye Pig Grower Feed',
-    slug: 'pig-grower-feed',
-    description: 'Balanced energy and amino-acid ration for growing weaners and fatteners between 20kg to 60kg live body weight.',
-    target_animal: 'Swine (Pigs)',
-    category_slug: 'pig-feed',
-    category_name: 'Pig Feed',
-    image_url: 'https://images.unsplash.com/photo-1516467508483-a7212febe31a?auto=format&fit=crop&w=800&q=80',
-    variants: [
-      { id: 'v3-1', sku: 'PGF-50KG', package_size: '50kg Bag', price_rwf: 32000 },
-      { id: 'v3-2', sku: 'PGF-25KG', package_size: '25kg Bag', price_rwf: 16500 },
-    ],
-  },
-  {
-    id: 'sample-p4',
-    name: 'Turashoboye Dairy Cattle Meal',
-    slug: 'dairy-cattle-meal',
-    description: 'High-fiber and bypass protein dairy concentrate formulated to stimulate rumination and maximize daily milk yields.',
-    target_animal: 'Dairy Cattle',
-    category_slug: 'cattle-feed',
-    category_name: 'Cattle & Dairy Feed',
-    image_url: 'https://images.unsplash.com/photo-1546445317-29f4545e9d53?auto=format&fit=crop&w=800&q=80',
-    variants: [
-      { id: 'v4-1', sku: 'DCM-50KG', package_size: '50kg Bag', price_rwf: 28000 },
-    ],
-  },
-  {
-    id: 'sample-p5',
-    name: 'Milled Soya Bean Meal (Feed Grade)',
-    slug: 'milled-soya-meal',
-    description: 'Roasted and milled high-protein soya meal (min 44% crude protein) for on-farm mixing and custom rations.',
-    target_animal: 'Multi-Species',
-    category_slug: 'raw-ingredients',
-    category_name: 'Raw Ingredients',
-    image_url: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=800&q=80',
-    variants: [
-      { id: 'v5-1', sku: 'SOYA-50KG', package_size: '50kg Bag', price_rwf: 42000 },
-      { id: 'v5-2', sku: 'SOYA-25KG', package_size: '25kg Bag', price_rwf: 21500 },
-    ],
-  },
-];
-
 export default function CataloguePage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [products, setProducts] = useState<PublicProduct[]>(FALLBACK_PRODUCTS);
+  const [products, setProducts] = useState<PublicProduct[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || 'all');
@@ -126,7 +52,7 @@ export default function CataloguePage() {
           `)
           .eq('published', true);
 
-        if (!error && data && data.length > 0) {
+        if (!error && data) {
           const formatted: PublicProduct[] = data.map((item: any) => {
             const primaryImg = item.product_images?.find((img: any) => img.is_primary) || item.product_images?.[0];
             return {
@@ -151,7 +77,7 @@ export default function CataloguePage() {
           setProducts(formatted);
         }
       } catch (err) {
-        console.warn('Falling back to default verified sample feed data', err);
+        console.warn('Error fetching feed catalogue:', err);
       } finally {
         setLoading(false);
       }

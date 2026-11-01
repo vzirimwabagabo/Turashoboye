@@ -20,58 +20,11 @@ interface ProductionBatchItem {
   quality_status: 'passed' | 'held' | 'pending';
 }
 
-const SAMPLE_BATCHES: ProductionBatchItem[] = [
-  {
-    id: 'batch-1',
-    batch_number: 'BATCH-20261016-001',
-    product_name: 'Turashoboye Broiler Starter Mash (50kg)',
-    formula_name: 'Standard Broiler Starter v2',
-    planned_output_qty: 2000,
-    actual_output_qty: 1960,
-    loss_qty: 40,
-    loss_percentage: 2.0, // Within 5% tolerance
-    status: 'completed',
-    started_at: '2026-10-16 08:30',
-    completed_at: '2026-10-16 11:45',
-    operator_name: 'Jean Claude Ndayisaba',
-    supervisor_name: 'Diane Uwase (Manager)',
-    quality_status: 'passed',
-  },
-  {
-    id: 'batch-2',
-    batch_number: 'BATCH-20261016-002',
-    product_name: 'Turashoboye Layer Complete Mash (50kg)',
-    formula_name: 'Complete Layer Mash v1',
-    planned_output_qty: 1500,
-    actual_output_qty: 1410,
-    loss_qty: 90,
-    loss_percentage: 6.0, // Exceeds 5% warning threshold!
-    status: 'held', // Placed on quality hold for investigation
-    started_at: '2026-10-16 13:00',
-    completed_at: '2026-10-16 15:30',
-    operator_name: 'Jean Claude Ndayisaba',
-    supervisor_name: 'Diane Uwase (Manager)',
-    quality_status: 'held',
-  },
-  {
-    id: 'batch-3',
-    batch_number: 'BATCH-20261017-003',
-    product_name: 'Turashoboye Pig Grower Feed (50kg)',
-    formula_name: 'Pig Grower Mash v1',
-    planned_output_qty: 1000,
-    status: 'in_progress',
-    started_at: '2026-10-17 09:00',
-    operator_name: 'Patrick Habiyambere',
-    supervisor_name: 'Diane Uwase (Manager)',
-    quality_status: 'pending',
-  },
-];
-
 const LOSS_WARNING_THRESHOLD = 5.0; // 5% configurable threshold
 
 export default function BatchesPage() {
   const { user } = useAuth();
-  const [batches, setBatches] = useState<ProductionBatchItem[]>(SAMPLE_BATCHES);
+  const [batches, setBatches] = useState<ProductionBatchItem[]>([]);
 
   // Start Batch Modal state
   const [startModalOpen, setStartModalOpen] = useState(false);
@@ -198,7 +151,15 @@ export default function BatchesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {batches.map((batch) => (
+              {batches.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-10 text-center text-gray-400">
+                    <Factory className="w-10 h-10 mx-auto text-gray-300 mb-2" />
+                    No production batches recorded yet.
+                  </td>
+                </tr>
+              ) : (
+                batches.map((batch) => (
                 <tr key={batch.id} className="hover:bg-gray-50/80 transition-colors">
                   <td className="px-5 py-4 font-mono font-bold text-gray-900 text-xs">
                     <div>
@@ -301,7 +262,7 @@ export default function BatchesPage() {
                     )}
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>

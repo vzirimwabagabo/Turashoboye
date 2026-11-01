@@ -14,6 +14,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { supabase } from '../../lib/supabase';
 import OrderReceiptModal from '../../components/sales/OrderReceiptModal';
 import type { PrintableOrder } from '../../components/sales/OrderReceiptModal';
 import OrderPlacementModal from '../../components/sales/OrderPlacementModal';
@@ -32,145 +33,21 @@ interface CustomerOrder {
   printableOrder: PrintableOrder;
 }
 
-const AVAILABLE_FEEDS = [
-  {
-    id: 'feed-01',
-    name: 'Turashoboye Broiler Starter Mash',
-    category: 'Poultry Feed',
-    tag: 'Broiler',
-    bagSize: '50kg Bag',
-    priceRwf: 24000,
-    image: 'https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?auto=format&fit=crop&w=600&q=80',
-    description: 'High-protein initial ration with crude protein ≥20% for rapid chick weight gain in Kirehe.',
-  },
-  {
-    id: 'feed-02',
-    name: 'Turashoboye Layer Complete Mash',
-    category: 'Poultry Feed',
-    tag: 'Layer',
-    bagSize: '50kg Bag',
-    priceRwf: 22000,
-    image: 'https://images.unsplash.com/photo-1516467508483-a7212febe31a?auto=format&fit=crop&w=600&q=80',
-    description: 'Calcium-fortified feed for egg-shell strength and sustained 80%+ laying rate.',
-  },
-  {
-    id: 'feed-03',
-    name: 'Turashoboye Pig Starter Mash',
-    category: 'Swine Feed',
-    tag: 'Pigs',
-    bagSize: '50kg Bag',
-    priceRwf: 21500,
-    image: 'https://images.unsplash.com/photo-1516467508483-a7212febe31a?auto=format&fit=crop&w=600&q=80',
-    description: 'Digestible energy-dense formula formulated with amino acids for healthy piglet growth.',
-  },
-  {
-    id: 'feed-04',
-    name: 'Turashoboye Dairy Meal Concentrate',
-    category: 'Cattle Feed',
-    tag: 'Cattle',
-    bagSize: '50kg Bag',
-    priceRwf: 20000,
-    image: 'https://images.unsplash.com/photo-1546445317-29f4545e9d53?auto=format&fit=crop&w=600&q=80',
-    description: 'Balanced protein concentrate supporting daily milk production in local and crossbred dairy cows.',
-  },
-];
-
-const INITIAL_CUSTOMER_ORDERS: CustomerOrder[] = [
-  {
-    id: 'ord-c1',
-    orderNumber: 'ORD-20261017-001',
-    orderDate: '2026-10-17T09:15:00Z',
-    status: 'fulfilled',
-    totalAmountRwf: 48000,
-    paidAmountRwf: 48000,
-    balanceDueRwf: 0,
-    itemsSummary: '2x Turashoboye Broiler Starter Mash (50kg Bag) [Batch: B-20261017-001]',
-    printableOrder: {
-      id: 'ord-c1',
-      orderNumber: 'ORD-20261017-001',
-      customerId: 'c1',
-      customerName: 'Jean-Paul Habimana',
-      customerPhone: '+250 788 123 456',
-      customerAddress: 'Mahama Camp, Village 4',
-      status: 'fulfilled',
-      orderDate: '2026-10-17T09:15:00Z',
-      total: 48000,
-      currencyCode: 'RWF',
-      createdAt: '2026-10-17T09:15:00Z',
-      staffName: 'Vedaste Zirimwabagabo',
-      items: [
-        {
-          productName: 'Turashoboye Broiler Starter Mash',
-          sku: 'BSM-50KG',
-          packageSize: '50kg Bag',
-          batchNumber: 'B-20261017-001',
-          quantity: 2,
-          unitPriceRwf: 24000,
-          discountRwf: 0,
-          lineTotalRwf: 48000,
-        },
-      ],
-      payments: [
-        {
-          method: 'cash',
-          amountRwf: 48000,
-          paymentDate: '2026-10-17',
-          reference: 'Cash at counter',
-          status: 'confirmed',
-        },
-      ],
-    },
-  },
-  {
-    id: 'ord-c2',
-    orderNumber: 'ORD-20261008-005',
-    orderDate: '2026-10-08T14:20:00Z',
-    status: 'fulfilled',
-    totalAmountRwf: 24000,
-    paidAmountRwf: 24000,
-    balanceDueRwf: 0,
-    itemsSummary: '1x Turashoboye Broiler Starter Mash (50kg Bag) [Batch: B-20261007-002]',
-    printableOrder: {
-      id: 'ord-c2',
-      orderNumber: 'ORD-20261008-005',
-      customerId: 'c1',
-      customerName: 'Jean-Paul Habimana',
-      customerPhone: '+250 788 123 456',
-      customerAddress: 'Mahama Camp, Village 4',
-      status: 'fulfilled',
-      orderDate: '2026-10-08T14:20:00Z',
-      total: 24000,
-      currencyCode: 'RWF',
-      createdAt: '2026-10-08T14:20:00Z',
-      staffName: 'Vedaste Zirimwabagabo',
-      items: [
-        {
-          productName: 'Turashoboye Broiler Starter Mash',
-          sku: 'BSM-50KG',
-          packageSize: '50kg Bag',
-          batchNumber: 'B-20261007-002',
-          quantity: 1,
-          unitPriceRwf: 24000,
-          discountRwf: 0,
-          lineTotalRwf: 24000,
-        },
-      ],
-      payments: [
-        {
-          method: 'momo',
-          amountRwf: 24000,
-          paymentDate: '2026-10-08',
-          reference: 'MTN MP261008.112',
-          status: 'confirmed',
-        },
-      ],
-    },
-  },
-];
+interface AvailableFeed {
+  id: string;
+  name: string;
+  category: string;
+  tag: string;
+  bagSize: string;
+  priceRwf: number;
+  image: string;
+  description: string;
+}
 
 export default function CustomerPortalPage() {
   const { user } = useAuth();
-  const [orders, setOrders] = useState<CustomerOrder[]>(INITIAL_CUSTOMER_ORDERS);
+  const [orders, setOrders] = useState<CustomerOrder[]>([]);
+  const [availableFeeds, setAvailableFeeds] = useState<AvailableFeed[]>([]);
   const [selectedReceipt, setSelectedReceipt] = useState<PrintableOrder | null>(null);
 
   // New OrderPlacementModal state
@@ -193,10 +70,52 @@ export default function CustomerPortalPage() {
   const customerName =
     user?.profile?.displayName ||
     (isSuperAdminReal ? 'Super Administrator' : user?.email?.split('@')[0]) ||
-    'Jean-Paul Habimana';
+    'Customer';
 
   useEffect(() => {
     window.scrollTo(0, 0);
+
+    // Fetch published products from Supabase
+    const fetchFeeds = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select(`
+            id,
+            name,
+            target_animal,
+            description,
+            categories(name),
+            product_variants(id, sku, package_size, price_rwf, is_active),
+            product_images(image_url, is_primary)
+          `)
+          .eq('published', true);
+
+        if (!error && data && data.length > 0) {
+          const feeds: AvailableFeed[] = data.flatMap((p: any) => {
+            const primaryImg = p.product_images?.find((img: any) => img.is_primary) || p.product_images?.[0];
+            const activeVariants = (p.product_variants || []).filter((v: any) => v.is_active);
+            if (activeVariants.length === 0) return [];
+            const mainVariant = activeVariants[0];
+            return [{
+              id: mainVariant.id,
+              name: p.name,
+              category: p.categories?.name || 'Animal Feed',
+              tag: (p.target_animal || 'Feed').split(' ')[0],
+              bagSize: mainVariant.package_size,
+              priceRwf: mainVariant.price_rwf,
+              image: primaryImg?.image_url || 'https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?auto=format&fit=crop&w=600&q=80',
+              description: p.description || 'Quality feed formulated for your livestock.',
+            }];
+          });
+          setAvailableFeeds(feeds);
+        }
+      } catch (err) {
+        console.warn('Could not load feeds from catalogue:', err);
+      }
+    };
+
+    fetchFeeds();
 
     const syncOrders = () => {
       const local = getLocalCustomerOrders();
@@ -235,7 +154,7 @@ export default function CustomerPortalPage() {
     };
   }, []);
 
-  const handleOpenOrder = (feed: typeof AVAILABLE_FEEDS[0]) => {
+  const handleOpenOrder = (feed: AvailableFeed) => {
     const target: FeedOrderTarget = {
       id: feed.id,
       name: feed.name,
@@ -403,46 +322,52 @@ export default function CustomerPortalPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {AVAILABLE_FEEDS.map((feed) => (
-              <div
-                key={feed.id}
-                className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-xs hover:border-[#2E7D32] hover:shadow-md transition flex flex-col justify-between group"
-              >
-                <div>
-                  <div className="h-36 w-full overflow-hidden relative">
-                    <img
-                      src={feed.image}
-                      alt={feed.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-black/60 text-white backdrop-blur-xs">
-                      {feed.tag}
-                    </span>
-                  </div>
-
-                  <div className="p-4 space-y-1">
-                    <h3 className="font-bold text-sm text-gray-900 leading-snug">{feed.name}</h3>
-                    <p className="text-xs text-gray-500 line-clamp-2">{feed.description}</p>
-                    <span className="text-xs font-semibold text-gray-400 block pt-1">{feed.bagSize}</span>
-                  </div>
-                </div>
-
-                <div className="p-4 pt-0 border-t border-gray-100 flex items-center justify-between mt-2">
-                  <span className="text-sm font-black text-[#2E7D32]">
-                    RWF {feed.priceRwf.toLocaleString()}
-                  </span>
-                  <button
-                    onClick={() => handleOpenOrder(feed)}
-                    disabled={isPending}
-                    title={isPending ? 'Account awaiting approval — ordering not yet enabled' : 'Place order'}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#2E7D32] hover:bg-[#256b29] text-white text-xs font-bold shadow-xs transition disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    <Plus size={13} />
-                    Order
-                  </button>
-                </div>
+            {availableFeeds.length === 0 ? (
+              <div className="col-span-4 py-8 text-center text-gray-400 text-sm">
+                No feeds currently available for ordering.
               </div>
-            ))}
+            ) : (
+              availableFeeds.map((feed) => (
+                <div
+                  key={feed.id}
+                  className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-xs hover:border-[#2E7D32] hover:shadow-md transition flex flex-col justify-between group"
+                >
+                  <div>
+                    <div className="h-36 w-full overflow-hidden relative">
+                      <img
+                        src={feed.image}
+                        alt={feed.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-black/60 text-white backdrop-blur-xs">
+                        {feed.tag}
+                      </span>
+                    </div>
+
+                    <div className="p-4 space-y-1">
+                      <h3 className="font-bold text-sm text-gray-900 leading-snug">{feed.name}</h3>
+                      <p className="text-xs text-gray-500 line-clamp-2">{feed.description}</p>
+                      <span className="text-xs font-semibold text-gray-400 block pt-1">{feed.bagSize}</span>
+                    </div>
+                  </div>
+
+                  <div className="p-4 pt-0 border-t border-gray-100 flex items-center justify-between mt-2">
+                    <span className="text-sm font-black text-[#2E7D32]">
+                      RWF {feed.priceRwf.toLocaleString()}
+                    </span>
+                    <button
+                      onClick={() => handleOpenOrder(feed)}
+                      disabled={isPending}
+                      title={isPending ? 'Account awaiting approval — ordering not yet enabled' : 'Place order'}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#2E7D32] hover:bg-[#256b29] text-white text-xs font-bold shadow-xs transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <Plus size={13} />
+                      Order
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -457,51 +382,57 @@ export default function CustomerPortalPage() {
           </div>
 
           <div className="divide-y divide-gray-100">
-            {orders.map((order) => (
-              <div
-                key={order.id}
-                className="p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 hover:bg-gray-50/60 transition"
-              >
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2.5">
-                    <span className="font-mono text-xs font-bold text-gray-900">
-                      {order.orderNumber}
-                    </span>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-0.5 text-[11px] font-semibold text-green-700">
-                      <CheckCircle2 className="h-3 w-3" />
-                      {order.status === 'confirmed' ? 'Ready for Pickup' : 'Fulfilled'}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-800 font-medium">{order.itemsSummary}</p>
-                  <div className="flex items-center gap-4 text-xs text-gray-400">
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3.5 w-3.5" />
-                      {new Date(order.orderDate).toLocaleDateString()}
-                    </span>
-                    <span>Depot: Mahama Primary Depot</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0">
-                  <div className="text-right">
-                    <span className="text-base font-black text-gray-900 block">
-                      RWF {order.totalAmountRwf.toLocaleString()}
-                    </span>
-                    <span className="text-[11px] text-green-700 font-semibold block">
-                      Paid in Full
-                    </span>
-                  </div>
-
-                  <button
-                    onClick={() => setSelectedReceipt(order.printableOrder)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 shadow-xs transition"
-                  >
-                    <Printer className="h-3.5 w-3.5" />
-                    Receipt
-                  </button>
-                </div>
+            {orders.length === 0 ? (
+              <div className="p-8 text-center text-gray-500 text-sm">
+                No previous orders recorded yet. Place an order from the available feeds above to get started.
               </div>
-            ))}
+            ) : (
+              orders.map((order) => (
+                <div
+                  key={order.id}
+                  className="p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 hover:bg-gray-50/60 transition"
+                >
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2.5">
+                      <span className="font-mono text-xs font-bold text-gray-900">
+                        {order.orderNumber}
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-0.5 text-[11px] font-semibold text-green-700">
+                        <CheckCircle2 className="h-3 w-3" />
+                        {order.status === 'confirmed' ? 'Ready for Pickup' : 'Fulfilled'}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-800 font-medium">{order.itemsSummary}</p>
+                    <div className="flex items-center gap-4 text-xs text-gray-400">
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3.5 w-3.5" />
+                        {new Date(order.orderDate).toLocaleDateString()}
+                      </span>
+                      <span>Depot: Mahama Primary Depot</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0">
+                    <div className="text-right">
+                      <span className="text-base font-black text-gray-900 block">
+                        RWF {order.totalAmountRwf.toLocaleString()}
+                      </span>
+                      <span className="text-[11px] text-green-700 font-semibold block">
+                        Paid in Full
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={() => setSelectedReceipt(order.printableOrder)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 shadow-xs transition"
+                    >
+                      <Printer className="h-3.5 w-3.5" />
+                      Receipt
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 

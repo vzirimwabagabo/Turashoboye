@@ -19,57 +19,9 @@ interface FormulaItem {
   }[];
 }
 
-const SAMPLE_FORMULAS: FormulaItem[] = [
-  {
-    id: 'f1',
-    name: 'Turashoboye Standard Broiler Starter',
-    current_version: 2,
-    output_feed: 'Broiler Starter Mash (50kg)',
-    expected_output_qty: 1000, // 1 Ton batch
-    is_approved: true,
-    approved_by: 'Agronomist Lead',
-    ingredients: [
-      { name: 'Cleaned Yellow Feed Maize', quantity: 560, unit: 'kg', percentage: 56 },
-      { name: 'Toasted Soya Bean Meal (44% CP)', quantity: 340, unit: 'kg', percentage: 34 },
-      { name: 'Wheat Pollard / Fine Bran', quantity: 75, unit: 'kg', percentage: 7.5 },
-      { name: 'Broiler Starter Vitamin-Mineral Premix 2.5%', quantity: 25, unit: 'kg', percentage: 2.5 },
-    ],
-  },
-  {
-    id: 'f2',
-    name: 'Turashoboye Complete Layer Mash (Peak Lay)',
-    current_version: 1,
-    output_feed: 'Layer Complete Mash (50kg)',
-    expected_output_qty: 1000,
-    is_approved: true,
-    approved_by: 'Agronomist Lead',
-    ingredients: [
-      { name: 'Cleaned Yellow Feed Maize', quantity: 520, unit: 'kg', percentage: 52 },
-      { name: 'Toasted Soya Bean Meal', quantity: 240, unit: 'kg', percentage: 24 },
-      { name: 'Wheat Bran', quantity: 140, unit: 'kg', percentage: 14 },
-      { name: 'Feed-Grade Limestone / Calcium Grit', quantity: 75, unit: 'kg', percentage: 7.5 },
-      { name: 'Layer Vitamin-Mineral Premix 2.5%', quantity: 25, unit: 'kg', percentage: 2.5 },
-    ],
-  },
-  {
-    id: 'f3',
-    name: 'Turashoboye Pig Grower Mash',
-    current_version: 1,
-    output_feed: 'Pig Grower Feed (50kg)',
-    expected_output_qty: 1000,
-    is_approved: false,
-    ingredients: [
-      { name: 'Cleaned Yellow Feed Maize', quantity: 580, unit: 'kg', percentage: 58 },
-      { name: 'Toasted Soya Bean Meal', quantity: 220, unit: 'kg', percentage: 22 },
-      { name: 'Fine Wheat Bran', quantity: 175, unit: 'kg', percentage: 17.5 },
-      { name: 'Swine Premix & Salt', quantity: 25, unit: 'kg', percentage: 2.5 },
-    ],
-  },
-];
-
 export default function FormulasPage() {
   const { user } = useAuth();
-  const [formulas, setFormulas] = useState<FormulaItem[]>(SAMPLE_FORMULAS);
+  const [formulas, setFormulas] = useState<FormulaItem[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
 
   // New formula form
@@ -131,7 +83,14 @@ export default function FormulasPage() {
 
       {/* Formulas Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {formulas.map((formula) => (
+        {formulas.length === 0 ? (
+          <div className="col-span-full py-12 text-center text-gray-400 bg-white rounded-3xl border border-gray-200">
+            <Beaker className="w-10 h-10 mx-auto text-gray-300 mb-2" />
+            <p className="text-sm font-medium">No feed formulations defined yet.</p>
+            <p className="text-xs text-gray-400 mt-1">Create a formulation recipe to begin compounding feeds.</p>
+          </div>
+        ) : (
+          formulas.map((formula) => (
           <div
             key={formula.id}
             className="bg-white border border-gray-200 rounded-3xl p-6 shadow-xs flex flex-col justify-between space-y-5"
@@ -203,7 +162,7 @@ export default function FormulasPage() {
               )}
             </div>
           </div>
-        ))}
+        )))}
       </div>
 
       {/* Create Formula Modal */}

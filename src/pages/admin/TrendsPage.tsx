@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   TrendingUp,
   Activity,
@@ -13,6 +13,8 @@ import {
   ShoppingCart,
   Truck,
 } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { getLocalCustomerOrders } from '../../lib/orderService';
 
 interface ActivityItem {
   id: string;
@@ -24,69 +26,6 @@ interface ActivityItem {
   meta?: string;
   status: 'completed' | 'pending' | 'in_progress';
 }
-
-const INITIAL_ACTIVITIES: ActivityItem[] = [
-  {
-    id: 'act-1',
-    type: 'sale',
-    title: 'Commercial Feed Order #ORD-20261018-09',
-    description: '10x 50kg Broiler Starter Mash sold to Jean-Paul Habimana',
-    timestamp: '2026-10-18T19:45:00Z',
-    user: 'Vedaste Zirimwabagabo',
-    meta: '380,000 RWF',
-    status: 'completed',
-  },
-  {
-    id: 'act-2',
-    type: 'production',
-    title: 'Batch Milling #BATCH-20261018-02 Completed',
-    description: 'Milled 1,000 kg Turashoboye Layer Complete Mash with 1.8% milling loss',
-    timestamp: '2026-10-18T16:20:00Z',
-    user: 'Vedaste Zirimwabagabo',
-    meta: 'Yield: 98.2%',
-    status: 'completed',
-  },
-  {
-    id: 'act-3',
-    type: 'user',
-    title: 'New Farmer Account Registered',
-    description: 'farmer.kirehe@gmail.com verified and assigned Farmer/Customer role',
-    timestamp: '2026-10-18T15:10:00Z',
-    user: 'Self-Registered',
-    meta: 'Mahama Sector',
-    status: 'completed',
-  },
-  {
-    id: 'act-4',
-    type: 'inventory',
-    title: 'Raw Soya Lot Receipt Registered',
-    description: '5,000 kg toasted soya bean received from Kirehe Grain Cooperative',
-    timestamp: '2026-10-18T11:00:00Z',
-    user: 'Vedaste Zirimwabagabo',
-    meta: 'LOT-SOYA-20261018',
-    status: 'completed',
-  },
-  {
-    id: 'act-5',
-    type: 'compliance',
-    title: 'RSB Laboratory Assay Recorded',
-    description: 'Broiler Starter Mash protein test: 21.4% (Passed RS EAS 287 specs)',
-    timestamp: '2026-10-17T14:30:00Z',
-    user: 'Aline Mugisha',
-    meta: 'Cert: RSB-PL-4412',
-    status: 'completed',
-  },
-  {
-    id: 'act-6',
-    type: 'sale',
-    title: 'Farmer Group Feed Collection',
-    description: '25x 50kg Pig Grower Feed dispatched to Mahama Livelihood Cooperative',
-    timestamp: '2026-10-17T09:15:00Z',
-    user: 'Aline Mugisha',
-    meta: '800,000 RWF',
-    status: 'completed',
-  },
-];
 
 const MONTHLY_REVENUE_TREND = [
   { month: 'May 2026', revenue: 7200000, tons: 22.5, orders: 48 },
@@ -105,8 +44,85 @@ const FEED_CATEGORY_MIX = [
 ];
 
 export default function TrendsPage() {
-  const [activities] = useState<ActivityItem[]>(INITIAL_ACTIVITIES);
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [activeFilter, setActiveFilter] = useState<string>('all');
+
+  useEffect(() => {
+    const fetchActivities = async () => {
+      try {
+        const loaded: ActivityItem[] = [];
+
+        // 1. Sales orders from Supabase
+        const { data: sales } = await supabase
+          .from('sales_orders')
+          .select('id, order_number, order_date, total_amount_rwf, status, customers(name)')
+          .order('order_date', { ascending: false })
+          .limit(10);
+
+        if (sales) {
+          sales.forEach((s: any) => {
+            loaded.push({
+              id: `sale-${s.id}`,
+              type: 'sale',
+              title: `Commercial Feed Order #${s.order_number}`,
+              description: `Feed order placed for ${s.customers?.name || 'Customer'}`,
+              timestamp: s.order_date,
+              user: 'Sales Desk',
+              meta: `${(s.total_amount_rwf || 0).toLocaleString()} RWF`,
+              status: s.status === 'fulfilled' ? 'completed' : 'pending',
+            });
+          });
+        }
+
+        // 2. Production batches from Supabase
+        const { data: batches } = await supabase
+          .from('production_batches')
+          .select('id, batch_number, actual_yield_kg, planned_output_qty, created_at, status')
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        if (batches) {
+          batches.forEach((b: any) => {
+            loaded.push({
+              id: `batch-${b.id}`,
+              type: 'production',
+              title: `Production Batch #${b.batch_number}`,
+              description: `Milled ${b.actual_yield_kg || b.planned_output_qty || 0} kg feed`,
+              timestamp: b.created_at || new Date().toISOString(),
+              user: 'Plant Operator',
+              meta: `Output: ${b.actual_yield_kg || b.planned_output_qty || 0} kg`,
+              status: b.status === 'completed' ? 'completed' : 'in_progress',
+            });
+          });
+        }
+
+        // 3. Local web orders if any
+        const local = getLocalCustomerOrders();
+        (local || []).forEach((loc: any) => {
+          if (!loaded.some((l) => l.title.includes(loc.orderNumber))) {
+            loaded.push({
+              id: `local-${loc.id}`,
+              type: 'sale',
+              title: `Web Store Order #${loc.orderNumber}`,
+              description: loc.itemsSummary || 'Customer online order placed via web store',
+              timestamp: loc.orderDate || new Date().toISOString(),
+              user: loc.printableOrder?.customerName || 'Online Customer',
+              meta: `${(loc.totalAmountRwf || 0).toLocaleString()} RWF`,
+              status: 'completed',
+            });
+          }
+        });
+
+        // Sort by timestamp descending
+        loaded.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        setActivities(loaded);
+      } catch (err) {
+        console.warn('Could not fetch activity log:', err);
+      }
+    };
+
+    fetchActivities();
+  }, []);
 
   const maxRevenue = Math.max(...MONTHLY_REVENUE_TREND.map((m) => m.revenue));
 
@@ -372,7 +388,14 @@ export default function TrendsPage() {
 
         {/* Activity Timeline List */}
         <div className="divide-y divide-gray-100 pt-2">
-          {filteredActivities.map((act) => (
+          {filteredActivities.length === 0 ? (
+            <div className="py-10 text-center text-gray-400">
+              <Activity className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+              <p className="text-sm font-medium text-gray-600">No operational activities recorded yet</p>
+              <p className="text-xs text-gray-400 mt-0.5">Transactions, batch milling, and system actions will stream here live.</p>
+            </div>
+          ) : (
+            filteredActivities.map((act) => (
             <div key={act.id} className="py-3.5 flex items-start justify-between gap-4 hover:bg-gray-50/50 rounded-xl px-2 transition">
               <div className="flex items-start gap-3">
                 <div
@@ -421,7 +444,7 @@ export default function TrendsPage() {
                 </div>
               )}
             </div>
-          ))}
+          )))}
         </div>
       </div>
     </div>
