@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { X, DollarSign, AlertCircle, CreditCard, Banknote } from 'lucide-react';
+import { X, DollarSign, AlertCircle, CreditCard, Banknote, Send } from 'lucide-react';
 import type { PaymentMethod } from '../../types/database';
+import RwandanMoMoModal, { type MoMoPaymentResult } from './RwandanMoMoModal';
 
 interface RecordPaymentModalProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ interface RecordPaymentModalProps {
   orderTotalRwf: number;
   alreadyPaidRwf: number;
   balanceDueRwf: number;
+  customerPhone?: string;
   onSavePayment: (payment: {
     method: PaymentMethod;
     amountRwf: number;
@@ -25,6 +27,7 @@ export default function RecordPaymentModal({
   orderTotalRwf,
   alreadyPaidRwf,
   balanceDueRwf,
+  customerPhone = '',
   onSavePayment,
 }: RecordPaymentModalProps) {
   const [method, setMethod] = useState<PaymentMethod>('cash');
@@ -32,8 +35,27 @@ export default function RecordPaymentModal({
   const [reference, setReference] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [momoPromptOpen, setMoMoPromptOpen] = useState(false);
 
   if (!isOpen) return null;
+
+  const handleMoMoAuthorized = async (result: MoMoPaymentResult) => {
+    setMoMoPromptOpen(false);
+    setReference(result.transactionReference);
+    try {
+      setSubmitting(true);
+      await onSavePayment({
+        method: 'momo',
+        amountRwf,
+        reference: result.transactionReference,
+      });
+      onClose();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to record payment');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -170,6 +192,27 @@ export default function RecordPaymentModal({
             </div>
           </div>
 
+          {method === 'momo' && (
+            <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-amber-950">
+                  Instant Customer MoMo USSD Push
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setMoMoPromptOpen(true)}
+                  className="inline-flex items-center gap-1 px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold shadow-xs transition"
+                >
+                  <Send size={12} />
+                  Send Push to Phone
+                </button>
+              </div>
+              <p className="text-[10px] text-amber-800 leading-relaxed">
+                Pushes an interactive USSD PIN prompt directly to the customer's phone to collect RWF {amountRwf.toLocaleString()} at the depot counter.
+              </p>
+            </div>
+          )}
+
           <div>
             <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
               {method === 'momo' ? 'MoMo Reference / TxID *' : 'Receipt / Notes (Optional)'}
@@ -203,6 +246,17 @@ export default function RecordPaymentModal({
           </div>
         </form>
       </div>
+
+      {/* Instant MoMo Prompt Modal */}
+      <RwandanMoMoModal
+        isOpen={momoPromptOpen}
+        onClose={() => setMoMoPromptOpen(false)}
+        orderNumber={orderNumber}
+        customerName={customerName}
+        amountRwf={amountRwf}
+        initialPhone={customerPhone}
+        onPaymentSuccess={handleMoMoAuthorized}
+      />
     </div>
   );
 }

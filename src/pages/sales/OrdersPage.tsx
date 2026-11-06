@@ -771,6 +771,7 @@ export default function OrdersPage() {
           orderTotalRwf={selectedPaymentOrder.totalAmountRwf}
           alreadyPaidRwf={selectedPaymentOrder.paidAmountRwf}
           balanceDueRwf={selectedPaymentOrder.balanceDueRwf}
+          customerPhone={selectedPaymentOrder.customerPhone}
           onSavePayment={handleSaveExtraPayment}
         />
       )}

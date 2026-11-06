@@ -11,6 +11,8 @@ import {
   Lock,
   MessageSquare,
   Sparkles,
+  Printer,
+  Smartphone,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import {
@@ -19,7 +21,8 @@ import {
   buildWhatsAppOrderConfirmationUrl,
   type OrderItemInput,
 } from '../../lib/orderService';
-import type { PrintableOrder } from './OrderReceiptModal';
+import OrderReceiptModal, { type PrintableOrder } from './OrderReceiptModal';
+import RwandanMoMoModal, { type MoMoPaymentResult } from './RwandanMoMoModal';
 
 export interface FeedOrderTarget {
   id: string;
@@ -61,12 +64,16 @@ export default function OrderPlacementModal({
   const [orderNotes, setOrderNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [confirmedOrder, setConfirmedOrder] = useState<PrintableOrder | null>(null);
+  const [momoModalOpen, setMomoModalOpen] = useState(false);
+  const [receiptModalOpen, setReceiptModalOpen] = useState(false);
 
   // Sync state when feed changes
   useEffect(() => {
     setSelectedVariantIndex(0);
     setQuantity(2);
     setConfirmedOrder(null);
+    setReceiptModalOpen(false);
+    setMomoModalOpen(false);
     if (user?.profile?.phone) {
       setPaymentPhone(user.profile.phone);
     }
@@ -102,6 +109,13 @@ export default function OrderPlacementModal({
 
   const handleConfirmOrder = async () => {
     if (isGuest || isPendingApproval) return;
+
+    // If customer selected MoMo, launch the interactive Rwandan MoMo USSD prompt flow
+    if (paymentMethod === 'momo') {
+      setMomoModalOpen(true);
+      return;
+    }
+
     setSubmitting(true);
 
     const res = await placeCustomerOrder({
@@ -115,6 +129,35 @@ export default function OrderPlacementModal({
       paymentPhone,
       items: [currentItem],
       notes: orderNotes,
+    });
+
+    setSubmitting(false);
+
+    if (res.success) {
+      setConfirmedOrder(res.printableOrder);
+      if (onOrderCompleted) {
+        onOrderCompleted(res.printableOrder);
+      }
+    }
+  };
+
+  const handleMoMoPaymentCompleted = async (result: MoMoPaymentResult) => {
+    setMomoModalOpen(false);
+    if (!user) return;
+    setSubmitting(true);
+
+    const res = await placeCustomerOrder({
+      customerId: user.profile?.id || user.id,
+      customerName: user.profile?.displayName || user.profile?.fullName || user.email?.split('@')[0] || 'Customer',
+      customerPhone: result.phoneNumber || paymentPhone || user.profile?.phone || '+250 788 000 000',
+      customerEmail: user.email || undefined,
+      deliveryAddress,
+      fulfillmentType,
+      paymentMethod: 'momo',
+      paymentPhone: result.phoneNumber,
+      paymentReference: result.transactionReference,
+      items: [currentItem],
+      notes: `${orderNotes ? orderNotes + '. ' : ''}Paid via MoMo TxID: ${result.transactionReference}`,
     });
 
     setSubmitting(false);
@@ -281,6 +324,15 @@ export default function OrderPlacementModal({
             </div>
 
             <div className="space-y-3 max-w-md mx-auto">
+              <button
+                type="button"
+                onClick={() => setReceiptModalOpen(true)}
+                className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#2E7D32] hover:bg-[#256b29] text-white font-bold text-xs shadow-xs transition"
+              >
+                <Printer size={16} />
+                View & Print Official Receipt (QR)
+              </button>
+
               <a
                 href={buildWhatsAppOrderConfirmationUrl(confirmedOrder, fulfillmentType)}
                 target="_blank"
@@ -557,12 +609,39 @@ export default function OrderPlacementModal({
                 onClick={handleConfirmOrder}
                 className="w-2/3 py-3 rounded-xl bg-[#2E7D32] hover:bg-[#256b29] text-white font-bold text-xs shadow-md transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
               >
-                {submitting ? 'Confirming Order...' : `Confirm Order (${calculation.totalAmountRwf.toLocaleString()} RWF)`}
+                {submitting ? (
+                  'Processing...'
+                ) : paymentMethod === 'momo' ? (
+                  <>
+                    <Smartphone size={15} />
+                    {`Pay with MoMo (${calculation.totalAmountRwf.toLocaleString()} RWF)`}
+                  </>
+                ) : (
+                  `Confirm Order (${calculation.totalAmountRwf.toLocaleString()} RWF)`
+                )}
               </button>
             </div>
           </div>
         )}
       </div>
+
+      {/* Interactive Rwandan MoMo Payment USSD Prompt Modal */}
+      <RwandanMoMoModal
+        isOpen={momoModalOpen}
+        onClose={() => setMomoModalOpen(false)}
+        orderNumber={`ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`}
+        customerName={user?.profile?.displayName || user?.profile?.fullName || 'Customer'}
+        amountRwf={calculation.totalAmountRwf}
+        initialPhone={paymentPhone}
+        onPaymentSuccess={handleMoMoPaymentCompleted}
+      />
+
+      {/* Official Receipt Modal with QR */}
+      <OrderReceiptModal
+        isOpen={receiptModalOpen}
+        onClose={() => setReceiptModalOpen(false)}
+        order={confirmedOrder}
+      />
     </div>
   );
 }
