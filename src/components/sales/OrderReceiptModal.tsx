@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { X, Printer, CheckCircle, ShieldCheck } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import type { SalesOrder } from '../../types/database';
 
 export interface PrintableOrderItem {
@@ -44,6 +45,7 @@ export default function OrderReceiptModal({ isOpen, onClose, order }: OrderRecei
 
   const totalPaidRwf = order.payments?.reduce((sum, p) => sum + p.amountRwf, 0) || 0;
   const balanceDueRwf = Math.max(0, order.total - totalPaidRwf);
+  const receiptVerificationUrl = `${window.location.origin}/verify/receipt/${encodeURIComponent(order.orderNumber)}`;
 
   const handlePrint = () => {
     window.print();
@@ -224,6 +226,35 @@ export default function OrderReceiptModal({ isOpen, onClose, order }: OrderRecei
                   RWF {balanceDueRwf.toLocaleString()}
                 </span>
               </div>
+            </div>
+          </div>
+
+          {/* Official Digital Receipt Verification & QR Section */}
+          <div className="border border-gray-200 rounded-xl p-3 bg-gray-50/70 flex items-center justify-between gap-4 print:border-black print:bg-transparent">
+            <div className="space-y-1">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-gray-500 block">
+                Official Digital Receipt Verification (EBM)
+              </span>
+              <p className="font-mono text-xs font-bold text-gray-900">
+                {order.orderNumber}
+              </p>
+              <p className="text-[10px] text-gray-500 max-w-xs">
+                Scan with any smartphone camera to verify authentic issuance, payment status, and depot dispatch records.
+              </p>
+              <p className="text-[9px] text-gray-400 font-mono">
+                RRA TIN: 100234891 • Reg: 00492-RICA-2026
+              </p>
+            </div>
+            <div className="p-2 bg-white rounded-lg border border-gray-300 print:border-black shrink-0 flex flex-col items-center">
+              <QRCodeSVG
+                value={receiptVerificationUrl}
+                size={74}
+                level="M"
+                includeMargin={false}
+              />
+              <span className="text-[8px] font-extrabold text-gray-700 uppercase tracking-wider mt-1">
+                Scan to Verify
+              </span>
             </div>
           </div>
 
