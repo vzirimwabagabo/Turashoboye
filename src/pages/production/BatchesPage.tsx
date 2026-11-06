@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { Plus, Factory, CheckCircle, AlertTriangle, ShieldAlert, ShieldCheck, X, Loader2 } from 'lucide-react';
+import { Plus, Factory, CheckCircle, AlertTriangle, ShieldAlert, ShieldCheck, X, Loader2, QrCode } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import BatchLabelModal from '../../components/production/BatchLabelModal';
+import type { PrintableBatch } from '../../components/production/BatchLabelModal';
 
 interface ProductionBatchItem {
   id: string;
@@ -40,6 +42,9 @@ export default function BatchesPage() {
   const [completing, setCompleting] = useState(false);
 
   const canManage = ['manager', 'owner', 'super_admin'].includes(user?.profile?.role || '');
+
+  // Bag Tag / QR Label modal state
+  const [labelBatch, setLabelBatch] = useState<PrintableBatch | null>(null);
 
   // Calculated metrics for completion modal
   const computedLossQty = activeBatch ? Math.max(activeBatch.planned_output_qty - actualQty, 0) : 0;
@@ -260,6 +265,16 @@ export default function BatchesPage() {
                         {batch.status === 'held' ? 'Release Hold' : 'Place Hold'}
                       </button>
                     )}
+                    {batch.status === 'completed' && batch.quality_status === 'passed' && (
+                      <button
+                        onClick={() => setLabelBatch(batch)}
+                        title="Print RSB bag tag with QR code"
+                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-md border border-[#2E7D32] text-[#2E7D32] hover:bg-green-50 transition-colors"
+                      >
+                        <QrCode size={12} />
+                        Bag Tag
+                      </button>
+                    )}
                   </td>
                 </tr>
               )))}
@@ -434,6 +449,13 @@ export default function BatchesPage() {
           </div>
         </div>
       )}
+
+      {/* RSB Bag Tag & QR Code Label Modal */}
+      <BatchLabelModal
+        batch={labelBatch}
+        isOpen={Boolean(labelBatch)}
+        onClose={() => setLabelBatch(null)}
+      />
     </div>
   );
 }

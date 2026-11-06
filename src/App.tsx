@@ -12,6 +12,7 @@ import ContactPage from './pages/public/ContactPage';
 import PrivacyPage from './pages/public/PrivacyPage';
 import TermsPage from './pages/public/TermsPage';
 import CustomerPortalPage from './pages/customer/CustomerPortalPage';
+import PublicBatchVerifyPage from './pages/public/PublicBatchVerifyPage';
 
 // Authenticated staff & management pages
 import LoginPage from './pages/LoginPage';
@@ -54,6 +55,9 @@ function App() {
             <Route path="/portal" element={<CustomerPortalPage />} />
             <Route path="/my-orders" element={<CustomerPortalPage />} />
           </Route>
+
+          {/* Public batch QR verification — no auth required, no nav layout */}
+          <Route path="/verify/batch/:batchNumber" element={<PublicBatchVerifyPage />} />
 
           {/* Authentication */}
           <Route path="/login" element={<LoginPage />} />
