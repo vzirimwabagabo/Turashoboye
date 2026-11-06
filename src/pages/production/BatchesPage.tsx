@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
 import { Plus, Factory, CheckCircle, AlertTriangle, ShieldAlert, ShieldCheck, X, Loader2, QrCode } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { supabase } from '../../lib/supabase';
 import BatchLabelModal from '../../components/production/BatchLabelModal';
 import type { PrintableBatch } from '../../components/production/BatchLabelModal';
 
@@ -27,6 +28,7 @@ const LOSS_WARNING_THRESHOLD = 5.0; // 5% configurable threshold
 export default function BatchesPage() {
   const { user } = useAuth();
   const [batches, setBatches] = useState<ProductionBatchItem[]>([]);
+  const [loadingBatches, setLoadingBatches] = useState(true);
 
   // Start Batch Modal state
   const [startModalOpen, setStartModalOpen] = useState(false);
@@ -45,6 +47,57 @@ export default function BatchesPage() {
 
   // Bag Tag / QR Label modal state
   const [labelBatch, setLabelBatch] = useState<PrintableBatch | null>(null);
+
+  // Load production batches from Supabase on mount
+  useEffect(() => {
+    async function fetchBatches() {
+      try {
+        setLoadingBatches(true);
+        const { data, error } = await supabase
+          .from('production_batches')
+          .select(`
+            id,
+            batch_number,
+            status,
+            created_at,
+            actual_output_qty,
+            planned_output_qty,
+            product_variants(products(name))
+          `)
+          .order('created_at', { ascending: false })
+          .limit(50);
+
+        if (!error && data) {
+          const formatted: ProductionBatchItem[] = data.map((d: any) => ({
+            id: d.id,
+            batch_number: d.batch_number,
+            product_name: d.product_variants?.products?.name || 'Feed Product',
+            formula_name: 'Standard Formula',
+            planned_output_qty: d.planned_output_qty || d.actual_output_qty || 0,
+            actual_output_qty: d.actual_output_qty,
+            loss_qty: d.planned_output_qty && d.actual_output_qty
+              ? Math.max(d.planned_output_qty - d.actual_output_qty, 0)
+              : undefined,
+            loss_percentage: d.planned_output_qty && d.actual_output_qty
+              ? Number((Math.max(d.planned_output_qty - d.actual_output_qty, 0) / d.planned_output_qty * 100).toFixed(2))
+              : undefined,
+            status: d.status || 'completed',
+            started_at: d.created_at ? d.created_at.slice(0, 16).replace('T', ' ') : '',
+            completed_at: d.status === 'completed' ? d.created_at?.slice(0, 10) : undefined,
+            operator_name: 'Depot Production Team',
+            supervisor_name: 'Depot Manager',
+            quality_status: d.status === 'held' ? 'held' : d.status === 'completed' ? 'passed' : 'pending',
+          }));
+          setBatches(formatted);
+        }
+      } catch (err) {
+        console.warn('Failed to load production batches:', err);
+      } finally {
+        setLoadingBatches(false);
+      }
+    }
+    fetchBatches();
+  }, []);
 
   // Calculated metrics for completion modal
   const computedLossQty = activeBatch ? Math.max(activeBatch.planned_output_qty - actualQty, 0) : 0;
@@ -156,11 +209,18 @@ export default function BatchesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {batches.length === 0 ? (
+              {loadingBatches ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-gray-400">
+                    <Loader2 className="w-8 h-8 mx-auto text-[#2E7D32] animate-spin mb-2" />
+                    <span className="text-sm">Loading production batches…</span>
+                  </td>
+                </tr>
+              ) : batches.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-10 text-center text-gray-400">
                     <Factory className="w-10 h-10 mx-auto text-gray-300 mb-2" />
-                    No production batches recorded yet.
+                    No production batches recorded yet. Click "Start Production Run" above to begin.
                   </td>
                 </tr>
               ) : (
