@@ -11,9 +11,12 @@ import {
   Clock,
   AlertTriangle,
   User,
+  CreditCard,
+  Lock,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
+import { PAYMENT_CONFIG } from '../../config/paymentConfig';
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -22,6 +25,11 @@ export default function SettingsPage() {
   const [retentionYears, setRetentionYears] = useState('10');
   const [depotName, setDepotName] = useState('Mahama Primary Feed Depot');
   const [depotAddress, setDepotAddress] = useState('Sector Mahama, Kirehe District, Eastern Province, Rwanda');
+  const [momoMerchantCode, setMomoMerchantCode] = useState(PAYMENT_CONFIG.mtnMoMoMerchantCode);
+  const [momoMerchantName, setMomoMerchantName] = useState(PAYMENT_CONFIG.mtnMoMoMerchantName);
+  const [airtelMerchantCode, setAirtelMerchantCode] = useState(PAYMENT_CONFIG.airtelMoneyMerchantCode);
+  const [rraTin, setRraTin] = useState(PAYMENT_CONFIG.rraTinNumber);
+  const [ricaPermit, setRicaPermit] = useState(PAYMENT_CONFIG.ricaPermitNumber);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -39,6 +47,13 @@ export default function SettingsPage() {
             }
             if (s.key === 'retention_policy_years' && s.value?.financial_years) {
               setRetentionYears(String(s.value.financial_years));
+            }
+            if (s.key === 'payment_gateway_config' && s.value) {
+              if (s.value.mtn_merchant_code) setMomoMerchantCode(s.value.mtn_merchant_code);
+              if (s.value.mtn_merchant_name) setMomoMerchantName(s.value.mtn_merchant_name);
+              if (s.value.airtel_merchant_code) setAirtelMerchantCode(s.value.airtel_merchant_code);
+              if (s.value.rra_tin) setRraTin(s.value.rra_tin);
+              if (s.value.rica_permit) setRicaPermit(s.value.rica_permit);
             }
           });
         }
@@ -71,6 +86,17 @@ export default function SettingsPage() {
           key: 'retention_policy_years',
           value: { financial_years: parseInt(retentionYears, 10) || 10, traceability_years: 10 },
           description: 'Statutory and operational record retention baseline in years',
+        },
+        {
+          key: 'payment_gateway_config',
+          value: {
+            mtn_merchant_code: momoMerchantCode.trim(),
+            mtn_merchant_name: momoMerchantName.trim(),
+            airtel_merchant_code: airtelMerchantCode.trim(),
+            rra_tin: rraTin.trim(),
+            rica_permit: ricaPermit.trim(),
+          },
+          description: 'Verified Rwandan Mobile Money Till and Statutory Credentials',
         },
       ];
 
@@ -230,6 +256,126 @@ export default function SettingsPage() {
                 onChange={(e) => setDepotAddress(e.target.value)}
                 className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]"
               />
+            </div>
+          </div>
+        </div>
+
+        {/* 3. Secure Mobile Money Till & Statutory Credentials */}
+        <div className="bg-white border-2 border-emerald-100 rounded-2xl p-6 shadow-xs space-y-5">
+          <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+            <div className="flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-[#2E7D32]" />
+              <h2 className="text-base font-bold text-gray-900">
+                Official Mobile Money Till & Statutory Credentials
+              </h2>
+            </div>
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-green-50 text-green-800 border border-green-300 uppercase tracking-wide">
+              <Lock className="w-3 h-3 text-[#2E7D32]" />
+              Executive Control Only
+            </span>
+          </div>
+
+          {/* Anti-Tamper Security Notice */}
+          <div className="p-4 rounded-xl bg-emerald-50/70 border border-emerald-200 text-xs text-emerald-950 space-y-1">
+            <div className="font-bold flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-[#2E7D32]" />
+              Anti-Tamper & Payment Security Guarantee:
+            </div>
+            <p className="text-[11px] text-emerald-800 leading-relaxed">
+              These merchant numbers govern where customer payments are routed. Only authenticated Platform Owners and Super Admins have permission to modify these values. Outside customers, depot staff, and unauthorized users are restricted by PostgreSQL Row-Level Security (RLS) policies.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">
+                MTN MoMo Till / Merchant Code *
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  required
+                  value={momoMerchantCode}
+                  onChange={(e) => setMomoMerchantCode(e.target.value)}
+                  placeholder="e.g. 100234"
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-sm font-mono font-bold text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2E7D32]"
+                />
+                <span className="absolute inset-y-0 right-3 flex items-center text-[10px] text-amber-700 font-bold">
+                  *182*8*1*CODE#
+                </span>
+              </div>
+              <p className="text-[11px] text-gray-500 mt-1">
+                Active MTN Rwanda merchant till code for customer USSD checkout.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">
+                MTN MoMo Registered Merchant Name *
+              </label>
+              <input
+                type="text"
+                required
+                value={momoMerchantName}
+                onChange={(e) => setMomoMerchantName(e.target.value)}
+                placeholder="e.g. Turashoboye Feed Mills Ltd"
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-sm font-bold text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2E7D32]"
+              />
+              <p className="text-[11px] text-gray-500 mt-1">
+                Official entity name displayed to farmers on their handset prompt.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">
+                Airtel Money Merchant Code
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={airtelMerchantCode}
+                  onChange={(e) => setAirtelMerchantCode(e.target.value)}
+                  placeholder="e.g. 550123"
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-sm font-mono font-bold text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2E7D32]"
+                />
+                <span className="absolute inset-y-0 right-3 flex items-center text-[10px] text-red-700 font-bold">
+                  *500*4*CODE#
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">
+                RRA Tax Identification Number (TIN) *
+              </label>
+              <input
+                type="text"
+                required
+                value={rraTin}
+                onChange={(e) => setRraTin(e.target.value)}
+                placeholder="e.g. 100234891"
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-sm font-mono font-bold text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2E7D32]"
+              />
+              <p className="text-[11px] text-gray-500 mt-1">
+                Printed on official sales receipts, QR digital stamps, and bag tags.
+              </p>
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-bold text-gray-700 mb-1">
+                RICA Statutory Operating Permit *
+              </label>
+              <input
+                type="text"
+                required
+                value={ricaPermit}
+                onChange={(e) => setRicaPermit(e.target.value)}
+                placeholder="e.g. 00492-RICA-2026"
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-sm font-mono font-bold text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2E7D32]"
+              />
+              <p className="text-[11px] text-gray-500 mt-1">
+                Rwanda Inspectorate, Competition and Consumer Protection Authority feed manufacturer registration.
+              </p>
             </div>
           </div>
         </div>

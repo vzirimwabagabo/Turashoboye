@@ -10,6 +10,7 @@ import {
   Send,
   RefreshCw
 } from 'lucide-react';
+import { PAYMENT_CONFIG } from '../../config/paymentConfig';
 
 export type TelcoProvider = 'mtn' | 'airtel' | 'unknown';
 
@@ -159,7 +160,7 @@ export default function RwandanMoMoModal({
                   : 'Rwanda Mobile Money Payment'}
               </h3>
               <p className="text-[11px] text-white/80">
-                Merchant Code: <span className="font-mono font-bold">100234</span> • Turashoboye Feeds
+                Merchant Code: <span className="font-mono font-bold">{provider === 'airtel' ? PAYMENT_CONFIG.airtelMoneyMerchantCode : PAYMENT_CONFIG.mtnMoMoMerchantCode}</span> • {PAYMENT_CONFIG.mtnMoMoMerchantName}
               </p>
             </div>
           </div>
@@ -292,7 +293,7 @@ export default function RwandanMoMoModal({
                   <span>*182#</span>
                 </div>
                 <p className="text-amber-400 font-bold">
-                  Do you want to authorize payment of RWF {amountRwf.toLocaleString()} to Turashoboye Feeds (Code: 100234)?
+                  Do you want to authorize payment of RWF {amountRwf.toLocaleString()} to {provider === 'airtel' ? PAYMENT_CONFIG.airtelMoneyMerchantName : PAYMENT_CONFIG.mtnMoMoMerchantName} (Code: {provider === 'airtel' ? PAYMENT_CONFIG.airtelMoneyMerchantCode : PAYMENT_CONFIG.mtnMoMoMerchantCode})?
                 </p>
                 <p className="text-[11px] text-gray-300">
                   Ref: {txRef}

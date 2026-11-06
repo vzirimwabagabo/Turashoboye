@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { X, Printer, ShieldCheck, Award, AlertCircle } from 'lucide-react';
+import { PAYMENT_CONFIG } from '../../config/paymentConfig';
 
 export interface PrintableBatch {
   id: string;
@@ -87,7 +88,7 @@ export default function BatchLabelModal({ batch, isOpen, onClose }: BatchLabelMo
                   Mahama Primary Depot & Milling Plant, Kirehe District, Eastern Province
                 </p>
                 <p className="text-[11px] text-gray-500 mt-0.5">
-                  RRA TIN: <span className="font-mono font-bold text-gray-800">100234891</span> | RICA Permit: <span className="font-mono font-bold text-gray-800">00492-RICA-2026</span>
+                  RRA TIN: <span className="font-mono font-bold text-gray-800">{PAYMENT_CONFIG.rraTinNumber}</span> | RICA Permit: <span className="font-mono font-bold text-gray-800">{PAYMENT_CONFIG.ricaPermitNumber}</span>
                 </p>
               </div>
 

@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { X, Printer, CheckCircle, ShieldCheck } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import type { SalesOrder } from '../../types/database';
+import { PAYMENT_CONFIG } from '../../config/paymentConfig';
 
 export interface PrintableOrderItem {
   productName: string;
@@ -242,7 +243,7 @@ export default function OrderReceiptModal({ isOpen, onClose, order }: OrderRecei
                 Scan with any smartphone camera to verify authentic issuance, payment status, and depot dispatch records.
               </p>
               <p className="text-[9px] text-gray-400 font-mono">
-                RRA TIN: 100234891 • Reg: 00492-RICA-2026
+                RRA TIN: {PAYMENT_CONFIG.rraTinNumber} • Reg: {PAYMENT_CONFIG.ricaPermitNumber}
               </p>
             </div>
             <div className="p-2 bg-white rounded-lg border border-gray-300 print:border-black shrink-0 flex flex-col items-center">
