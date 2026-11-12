@@ -282,6 +282,7 @@ export const PaymentMethod = {
   CASH: "cash",
   MOMO: "momo",
   BANK_TRANSFER: "bank_transfer",
+  PAY_ON_DELIVERY: "pay_on_delivery",
 } as const;
 export type PaymentMethod = (typeof PaymentMethod)[keyof typeof PaymentMethod];
 

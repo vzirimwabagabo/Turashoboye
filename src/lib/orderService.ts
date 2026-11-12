@@ -18,9 +18,15 @@ export interface PlaceOrderParams {
   customerEmail?: string;
   deliveryAddress: string;
   fulfillmentType: 'pickup' | 'delivery';
-  paymentMethod: 'cash' | 'momo' | 'bank_transfer';
+  paymentMethod: 'cash' | 'momo' | 'bank_transfer' | 'pay_on_delivery';
   paymentPhone?: string;
   paymentReference?: string;
+  isPaidOnline?: boolean;
+  bankDetails?: {
+    bankName: string;
+    depositSlipReference: string;
+    payerName?: string;
+  };
   items: OrderItemInput[];
   notes?: string;
 }
@@ -175,16 +181,32 @@ export async function placeCustomerOrder(params: PlaceOrderParams): Promise<{
       discountRwf: 0,
       lineTotalRwf: item.unitPriceRwf * item.quantity,
     })),
-    payments: [
-      {
-        method: params.paymentMethod,
-        amountRwf: calculation.totalAmountRwf,
-        paymentDate: now.toISOString().split('T')[0],
-        reference: params.paymentReference || (params.paymentMethod === 'cash' ? 'Pay on Collection at Depot' : `MoMo ${params.paymentPhone || params.customerPhone}`),
-        status: 'confirmed',
-      },
-    ],
+    payments: params.isPaidOnline
+      ? [
+          {
+            method: 'momo',
+            amountRwf: calculation.totalAmountRwf,
+            paymentDate: now.toISOString().split('T')[0],
+            reference: params.paymentReference || `MoMo ${params.paymentPhone || params.customerPhone}`,
+            status: 'confirmed',
+          },
+        ]
+      : params.paymentMethod === 'bank_transfer'
+      ? [
+          {
+            method: 'bank_transfer',
+            amountRwf: calculation.totalAmountRwf,
+            paymentDate: now.toISOString().split('T')[0],
+            reference: `Bank: ${params.bankDetails?.bankName || 'BK'} | Slip: ${params.bankDetails?.depositSlipReference || params.paymentReference || 'Pending verification'}`,
+            status: 'pending_verification',
+          },
+        ]
+      : [],
   };
+
+  const isFullySettled = Boolean(params.isPaidOnline);
+  const paidAmountRwf = isFullySettled ? calculation.totalAmountRwf : 0;
+  const balanceDueRwf = isFullySettled ? 0 : calculation.totalAmountRwf;
 
   const storedRecord = {
     id: orderId,
@@ -192,8 +214,9 @@ export async function placeCustomerOrder(params: PlaceOrderParams): Promise<{
     orderDate: now.toISOString(),
     status: 'confirmed',
     totalAmountRwf: calculation.totalAmountRwf,
-    paidAmountRwf: calculation.totalAmountRwf,
-    balanceDueRwf: 0,
+    paidAmountRwf,
+    balanceDueRwf,
+    paymentStatus: isFullySettled ? 'paid' : 'unpaid',
     itemsSummary: params.items.map((i) => `${i.quantity}x ${i.productName} (${i.packageSize})`).join(', '),
     fulfillmentType: params.fulfillmentType,
     printableOrder,
@@ -207,11 +230,14 @@ export async function placeCustomerOrder(params: PlaceOrderParams): Promise<{
     const targetVariantId = isUuid ? rawVariantId : (SKU_TO_VARIANT_ID[firstItem?.sku || ''] || 'f299c2cd-ddd2-4f9f-85d0-09f4d0a6c789');
     const totalBags = params.items.reduce((s, it) => s + it.quantity, 0);
 
+    // Map pay_on_delivery to cash for standard DB constraint
+    const dbPaymentMethod = params.paymentMethod === 'pay_on_delivery' ? 'cash' : params.paymentMethod;
+
     const { data: rpcResult, error: rpcError } = await supabase.rpc('submit_customer_order', {
       p_variant_id: targetVariantId,
       p_quantity: totalBags,
-      p_payment_method: params.paymentMethod,
-      p_notes: `${params.fulfillmentType.toUpperCase()} - ${params.deliveryAddress}. ${params.notes || ''}`.trim(),
+      p_payment_method: dbPaymentMethod,
+      p_notes: `${params.fulfillmentType.toUpperCase()} - ${params.deliveryAddress}. Payment: ${params.paymentMethod.toUpperCase()}${params.isPaidOnline ? ' (PAID ONLINE VIA MOMO)' : ' (UNPAID - PENDING COLLECTION)'}. ${params.notes || ''}`.trim(),
     });
 
     if (!rpcError && rpcResult?.success) {

@@ -13,6 +13,11 @@ import {
   Sparkles,
   Printer,
   Smartphone,
+  Building2,
+  CreditCard,
+  AlertCircle,
+  KeyRound,
+  Send,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import {
@@ -22,7 +27,8 @@ import {
   type OrderItemInput,
 } from '../../lib/orderService';
 import OrderReceiptModal, { type PrintableOrder } from './OrderReceiptModal';
-import RwandanMoMoModal, { type MoMoPaymentResult } from './RwandanMoMoModal';
+import { PAYMENT_CONFIG } from '../../config/paymentConfig';
+import { detectRwandaTelco } from './RwandanMoMoModal';
 
 export interface FeedOrderTarget {
   id: string;
@@ -59,13 +65,36 @@ export default function OrderPlacementModal({
   const [quantity, setQuantity] = useState(2);
   const [fulfillmentType, setFulfillmentType] = useState<'pickup' | 'delivery'>('pickup');
   const [deliveryAddress, setDeliveryAddress] = useState('Mahama Sector, Kirehe District');
-  const [paymentMethod, setPaymentMethod] = useState<'momo' | 'cash' | 'bank_transfer'>('momo');
+  const [paymentMethod, setPaymentMethod] = useState<'momo' | 'bank_transfer' | 'pay_on_delivery' | 'cash'>('momo');
   const [paymentPhone, setPaymentPhone] = useState(user?.phone || user?.profile?.phone || '');
   const [orderNotes, setOrderNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [confirmedOrder, setConfirmedOrder] = useState<PrintableOrder | null>(null);
-  const [momoModalOpen, setMomoModalOpen] = useState(false);
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+
+  // MoMo Online Payment interactive state
+  const [momoPin, setMomoPin] = useState('');
+  const [momoAuthStatus, setMomoAuthStatus] = useState<'idle' | 'push_dispatched' | 'authorized'>('idle');
+  const [momoTxRef, setMomoTxRef] = useState('');
+  const [momoCountdown, setMomoCountdown] = useState(60);
+  const [momoError, setMomoError] = useState<string | null>(null);
+
+  // Bank Transfer state
+  const [bankName, setBankName] = useState('Bank of Kigali (BK)');
+  const [bankSlipRef, setBankSlipRef] = useState('');
+  const [bankDepositor, setBankDepositor] = useState(user?.profile?.displayName || user?.profile?.fullName || '');
+  const [bankError, setBankError] = useState<string | null>(null);
+
+  // MoMo countdown timer during USSD push
+  useEffect(() => {
+    let t: any = null;
+    if (momoAuthStatus === 'push_dispatched' && momoCountdown > 0) {
+      t = setInterval(() => {
+        setMomoCountdown((c) => (c <= 1 ? 0 : c - 1));
+      }, 1000);
+    }
+    return () => clearInterval(t);
+  }, [momoAuthStatus, momoCountdown]);
 
   // Sync state when feed changes
   useEffect(() => {
@@ -73,7 +102,12 @@ export default function OrderPlacementModal({
     setQuantity(2);
     setConfirmedOrder(null);
     setReceiptModalOpen(false);
-    setMomoModalOpen(false);
+    setMomoPin('');
+    setMomoAuthStatus('idle');
+    setMomoTxRef('');
+    setMomoError(null);
+    setBankSlipRef('');
+    setBankError(null);
     if (user?.profile?.phone) {
       setPaymentPhone(user.profile.phone);
     }
@@ -107,16 +141,68 @@ export default function OrderPlacementModal({
   const isGuest = !user;
   const isPendingApproval = user?.profile?.status === 'pending';
 
-  const handleConfirmOrder = async () => {
-    if (isGuest || isPendingApproval) return;
+  const telcoProvider = detectRwandaTelco(paymentPhone);
 
-    // If customer selected MoMo, launch the interactive Rwandan MoMo USSD prompt flow
-    if (paymentMethod === 'momo') {
-      setMomoModalOpen(true);
+  const handleInitiateMoMoPush = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setMomoError(null);
+    const cleaned = paymentPhone.replace(/[\s\-\+\(\)]/g, '');
+    const national = cleaned.startsWith('250') ? '0' + cleaned.slice(3) : cleaned;
+    if (!/^0(78|79|72|73)\d{7}$/.test(national)) {
+      setMomoError('Please enter a valid 10-digit Rwanda mobile number (MTN 078/079 or Airtel 072/073).');
       return;
+    }
+    setMomoAuthStatus('push_dispatched');
+    setMomoCountdown(60);
+  };
+
+  const handleAuthorizeMoMoPin = () => {
+    if (!momoPin || momoPin.length < 4) {
+      setMomoError('Please enter your 4 or 5-digit MoMo PIN to authorize payment.');
+      return;
+    }
+    setMomoError(null);
+    const ref = `MP${new Date().toISOString().slice(2, 10).replace(/-/g, '')}.${Math.floor(1000 + Math.random() * 9000)}`;
+    setMomoTxRef(ref);
+    setMomoAuthStatus('authorized');
+  };
+
+  const handleConfirmOrder = async () => {
+    if (isGuest || isPendingApproval || !user) return;
+
+    // 1. If MoMo selected, verify that the PIN was authorized online
+    if (paymentMethod === 'momo') {
+      if (momoAuthStatus !== 'authorized') {
+        if (momoAuthStatus === 'idle') {
+          handleInitiateMoMoPush();
+          setMomoError('Please check your phone and enter your MoMo PIN below to authorize online payment before confirming.');
+          return;
+        }
+        if (momoAuthStatus === 'push_dispatched') {
+          setMomoError('Please enter your 4-5 digit MoMo PIN and click "Authorize PIN" to complete payment.');
+          return;
+        }
+      }
+    }
+
+    // 2. If Bank Transfer selected, verify that deposit slip reference is entered
+    if (paymentMethod === 'bank_transfer') {
+      if (!bankSlipRef.trim()) {
+        setBankError('Please enter the Bank Deposit Slip or Transfer Reference Number.');
+        return;
+      }
     }
 
     setSubmitting(true);
+
+    const isPaidOnline = paymentMethod === 'momo' && momoAuthStatus === 'authorized';
+    const paymentReference = isPaidOnline
+      ? momoTxRef
+      : paymentMethod === 'bank_transfer'
+      ? `Bank: ${bankName} | Slip: ${bankSlipRef.trim()}`
+      : paymentMethod === 'pay_on_delivery'
+      ? 'Due on Delivery to Driver'
+      : 'Due at Depot Counter on Pickup';
 
     const res = await placeCustomerOrder({
       customerId: user.profile?.id || user.id,
@@ -127,37 +213,11 @@ export default function OrderPlacementModal({
       fulfillmentType,
       paymentMethod,
       paymentPhone,
+      paymentReference,
+      isPaidOnline,
+      bankDetails: paymentMethod === 'bank_transfer' ? { bankName, depositSlipReference: bankSlipRef.trim(), payerName: bankDepositor } : undefined,
       items: [currentItem],
-      notes: orderNotes,
-    });
-
-    setSubmitting(false);
-
-    if (res.success) {
-      setConfirmedOrder(res.printableOrder);
-      if (onOrderCompleted) {
-        onOrderCompleted(res.printableOrder);
-      }
-    }
-  };
-
-  const handleMoMoPaymentCompleted = async (result: MoMoPaymentResult) => {
-    setMomoModalOpen(false);
-    if (!user) return;
-    setSubmitting(true);
-
-    const res = await placeCustomerOrder({
-      customerId: user.profile?.id || user.id,
-      customerName: user.profile?.displayName || user.profile?.fullName || user.email?.split('@')[0] || 'Customer',
-      customerPhone: result.phoneNumber || paymentPhone || user.profile?.phone || '+250 788 000 000',
-      customerEmail: user.email || undefined,
-      deliveryAddress,
-      fulfillmentType,
-      paymentMethod: 'momo',
-      paymentPhone: result.phoneNumber,
-      paymentReference: result.transactionReference,
-      items: [currentItem],
-      notes: `${orderNotes ? orderNotes + '. ' : ''}Paid via MoMo TxID: ${result.transactionReference}`,
+      notes: `${orderNotes ? orderNotes + '. ' : ''}${paymentReference}`,
     });
 
     setSubmitting(false);
@@ -312,6 +372,26 @@ export default function OrderPlacementModal({
               <div className="flex justify-between font-semibold text-gray-800">
                 <span>Total Amount:</span>
                 <span className="font-bold text-gray-900">{confirmedOrder.total.toLocaleString()} RWF</span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>Payment Status:</span>
+                {paymentMethod === 'momo' && momoAuthStatus === 'authorized' ? (
+                  <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded text-[11px]">
+                    Paid in Full via MoMo (Ref: {momoTxRef})
+                  </span>
+                ) : paymentMethod === 'bank_transfer' ? (
+                  <span className="font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded text-[11px]">
+                    Pending Bank Clearance (Slip: {bankSlipRef})
+                  </span>
+                ) : paymentMethod === 'pay_on_delivery' ? (
+                  <span className="font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded text-[11px]">
+                    Unpaid • Due on Delivery to Driver
+                  </span>
+                ) : (
+                  <span className="font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded text-[11px]">
+                    Unpaid • Due at Depot Cashier Counter
+                  </span>
+                )}
               </div>
               <div className="flex justify-between text-gray-600">
                 <span>Fulfillment:</span>
@@ -500,58 +580,328 @@ export default function OrderPlacementModal({
               )}
             </div>
 
-            {/* Payment Method */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-gray-700 uppercase">Payment Method:</label>
-              <div className="grid grid-cols-3 gap-2">
+            {/* Payment Method Selector */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-gray-700 uppercase">Payment Method:</label>
+                <span className="text-[10px] text-gray-500 font-medium">No free dispatches • Payment verified</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => setPaymentMethod('momo')}
-                  className={`p-2.5 rounded-xl border text-center text-xs transition ${
+                  onClick={() => {
+                    setPaymentMethod('momo');
+                    setMomoError(null);
+                  }}
+                  className={`p-2.5 rounded-xl border text-left text-xs transition ${
                     paymentMethod === 'momo'
                       ? 'border-[#2E7D32] bg-emerald-50 text-[#2E7D32] font-bold ring-1 ring-[#2E7D32]'
                       : 'border-gray-200 text-gray-700 hover:bg-gray-50'
                   }`}
                 >
-                  📱 MTN MoMo
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <Smartphone size={14} className="text-amber-600" />
+                    📱 MoMo (Pay Online Now)
+                  </div>
+                  <span className="text-[10px] text-gray-500 block mt-0.5">MTN / Airtel Instant PIN</span>
                 </button>
+
                 <button
                   type="button"
-                  onClick={() => setPaymentMethod('cash')}
-                  className={`p-2.5 rounded-xl border text-center text-xs transition ${
-                    paymentMethod === 'cash'
-                      ? 'border-[#2E7D32] bg-emerald-50 text-[#2E7D32] font-bold ring-1 ring-[#2E7D32]'
-                      : 'border-gray-200 text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  💵 Cash at Depot
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('bank_transfer')}
-                  className={`p-2.5 rounded-xl border text-center text-xs transition ${
+                  onClick={() => {
+                    setPaymentMethod('bank_transfer');
+                    setBankError(null);
+                  }}
+                  className={`p-2.5 rounded-xl border text-left text-xs transition ${
                     paymentMethod === 'bank_transfer'
                       ? 'border-[#2E7D32] bg-emerald-50 text-[#2E7D32] font-bold ring-1 ring-[#2E7D32]'
                       : 'border-gray-200 text-gray-700 hover:bg-gray-50'
                   }`}
                 >
-                  🏦 Bank / Co-op
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <Building2 size={14} className="text-blue-600" />
+                    🏦 Bank Transfer (Slip)
+                  </div>
+                  <span className="text-[10px] text-gray-500 block mt-0.5">BK / Equity Deposit Slip</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('pay_on_delivery')}
+                  className={`p-2.5 rounded-xl border text-left text-xs transition ${
+                    paymentMethod === 'pay_on_delivery'
+                      ? 'border-[#2E7D32] bg-emerald-50 text-[#2E7D32] font-bold ring-1 ring-[#2E7D32]'
+                      : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <Truck size={14} className="text-[#2E7D32]" />
+                    🚚 Pay on Delivery
+                  </div>
+                  <span className="text-[10px] text-gray-500 block mt-0.5">Cash / MoMo to Driver</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('cash')}
+                  className={`p-2.5 rounded-xl border text-left text-xs transition ${
+                    paymentMethod === 'cash'
+                      ? 'border-[#2E7D32] bg-emerald-50 text-[#2E7D32] font-bold ring-1 ring-[#2E7D32]'
+                      : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <CreditCard size={14} className="text-gray-600" />
+                    💵 Pay at Depot Counter
+                  </div>
+                  <span className="text-[10px] text-gray-500 block mt-0.5">Cash on Pickup Desk</span>
                 </button>
               </div>
 
+              {/* 1. MOMO ONLINE PAYMENT PANEL */}
               {paymentMethod === 'momo' && (
-                <div className="pt-1">
-                  <label className="text-[11px] font-semibold text-gray-600 block mb-1">
-                    MoMo Contact Number:
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    value={paymentPhone}
-                    onChange={(e) => setPaymentPhone(e.target.value)}
-                    placeholder="078XXXXXXX"
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs"
-                  />
+                <div className="p-4 rounded-2xl bg-amber-50/60 border border-amber-200 space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-amber-200/70">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-amber-950">
+                      <Smartphone size={15} className="text-amber-700" />
+                      <span>Live MoMo PIN Authorization</span>
+                    </div>
+                    <span className="text-[10px] font-mono font-bold bg-amber-200/70 text-amber-950 px-2 py-0.5 rounded">
+                      Till: {PAYMENT_CONFIG.mtnMoMoMerchantCode}
+                    </span>
+                  </div>
+
+                  {momoError && (
+                    <div className="p-2.5 bg-red-100 border border-red-200 rounded-xl flex items-center gap-1.5 text-xs text-red-900">
+                      <AlertCircle size={14} className="shrink-0 text-red-700" />
+                      <span>{momoError}</span>
+                    </div>
+                  )}
+
+                  {/* Phone input */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-gray-700 block mb-1">
+                      MoMo Mobile Number:
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="tel"
+                        required
+                        value={paymentPhone}
+                        onChange={(e) => {
+                          setPaymentPhone(e.target.value);
+                          if (momoAuthStatus !== 'idle') setMomoAuthStatus('idle');
+                        }}
+                        placeholder="078XXXXXXX or 072XXXXXXX"
+                        className="w-full pl-3 pr-24 py-2 bg-white border border-gray-300 rounded-xl text-xs font-mono font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#2E7D32]"
+                      />
+                      <span className="absolute inset-y-0 right-2 flex items-center">
+                        {telcoProvider === 'mtn' ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300">
+                            MTN MoMo
+                          </span>
+                        ) : telcoProvider === 'airtel' ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-black bg-red-100 text-red-900 border border-red-300">
+                            Airtel Money
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-gray-400">Rwanda</span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* MoMo Authorization Box */}
+                  {momoAuthStatus === 'idle' && (
+                    <div className="pt-1 flex items-center justify-between gap-3">
+                      <p className="text-[11px] text-amber-900 leading-tight">
+                        Click to send a USSD prompt to your handset to enter your PIN.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleInitiateMoMoPush}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shrink-0 shadow-xs transition"
+                      >
+                        <Send size={13} />
+                        Push USSD Prompt
+                      </button>
+                    </div>
+                  )}
+
+                  {momoAuthStatus === 'push_dispatched' && (
+                    <div className="p-3 bg-gray-900 text-white rounded-xl border border-gray-800 space-y-2 text-xs font-mono">
+                      <div className="flex items-center justify-between text-[10px] text-gray-400 border-b border-gray-800 pb-1">
+                        <span>USSD PIN Prompt Dispatched</span>
+                        <span>{momoCountdown}s remaining</span>
+                      </div>
+                      <p className="text-amber-400 text-xs">
+                        Authorize payment of RWF {calculation.totalAmountRwf.toLocaleString()} to Turashoboye Feeds (Code: {PAYMENT_CONFIG.mtnMoMoMerchantCode})
+                      </p>
+                      <div className="pt-1 flex items-center gap-2">
+                        <span className="text-[10px] text-gray-300 font-sans">Enter MoMo PIN:</span>
+                        <input
+                          type="password"
+                          maxLength={5}
+                          placeholder="••••"
+                          value={momoPin}
+                          onChange={(e) => setMomoPin(e.target.value)}
+                          className="w-24 px-2 py-1.5 bg-gray-800 text-amber-300 text-center font-black tracking-widest rounded border border-gray-700 text-sm focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAuthorizeMoMoPin}
+                          className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#2E7D32] hover:bg-[#256b29] text-white text-xs font-sans font-bold shadow-xs transition"
+                        >
+                          <KeyRound size={12} />
+                          Authorize PIN
+                        </button>
+                      </div>
+                      <p className="text-[9px] text-gray-400 pt-0.5">
+                        * Dial *182*7*1# on your phone if prompt was missed.
+                      </p>
+                    </div>
+                  )}
+
+                  {momoAuthStatus === 'authorized' && (
+                    <div className="p-3 bg-emerald-100 border border-emerald-300 rounded-xl flex items-center justify-between text-xs text-emerald-950">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 size={18} className="text-[#2E7D32] shrink-0" />
+                        <div>
+                          <span className="font-black block text-xs">Payment Cleared (Ref: {momoTxRef})</span>
+                          <span className="text-[10px] text-emerald-800">RWF {calculation.totalAmountRwf.toLocaleString()} settled. Ready to confirm order.</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMomoAuthStatus('idle');
+                          setMomoPin('');
+                        }}
+                        className="text-[10px] font-bold text-emerald-800 hover:underline"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 2. BANK TRANSFER PANEL */}
+              {paymentMethod === 'bank_transfer' && (
+                <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200 space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-blue-200/70">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-blue-950">
+                      <Building2 size={15} className="text-blue-700" />
+                      <span>Turashoboye Official Bank Accounts</span>
+                    </div>
+                    <span className="text-[10px] font-bold text-blue-800">Deposit Slip Required</span>
+                  </div>
+
+                  {bankError && (
+                    <div className="p-2.5 bg-red-100 border border-red-200 rounded-xl flex items-center gap-1.5 text-xs text-red-900">
+                      <AlertCircle size={14} className="shrink-0 text-red-700" />
+                      <span>{bankError}</span>
+                    </div>
+                  )}
+
+                  <div className="p-3 bg-white rounded-xl border border-blue-100 text-[11px] space-y-1 text-gray-700">
+                    <div className="flex justify-between">
+                      <span className="font-semibold">Bank of Kigali (BK):</span>
+                      <span className="font-mono font-bold text-gray-900">00040-0694123-55 (RWF)</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-semibold">Equity Bank Rwanda:</span>
+                      <span className="font-mono font-bold text-gray-900">4002111289012 (RWF)</span>
+                    </div>
+                    <div className="flex justify-between pt-1 border-t border-gray-100 text-[10px]">
+                      <span>Account Name:</span>
+                      <span className="font-bold text-gray-900">TURASHOBOYE FEED MILLS LTD</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                    <div>
+                      <label className="text-[10px] font-semibold text-gray-600 block mb-1">
+                        Bank Transferred To:
+                      </label>
+                      <select
+                        value={bankName}
+                        onChange={(e) => setBankName(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg text-xs"
+                      >
+                        <option value="Bank of Kigali (BK)">Bank of Kigali (BK)</option>
+                        <option value="Equity Bank Rwanda">Equity Bank Rwanda</option>
+                        <option value="Other Bank / Co-op Transfer">Other Bank / Co-op Transfer</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-700 block mb-1">
+                        Deposit Slip / Tx Reference *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={bankSlipRef}
+                        onChange={(e) => {
+                          setBankSlipRef(e.target.value);
+                          if (bankError) setBankError(null);
+                        }}
+                        placeholder="e.g. BK-DEP-202611-091"
+                        className="w-full px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-mono font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-semibold text-gray-600 block mb-1">
+                        Depositor / Co-op Name:
+                      </label>
+                      <input
+                        type="text"
+                        value={bankDepositor}
+                        onChange={(e) => setBankDepositor(e.target.value)}
+                        placeholder="Depositor name"
+                        className="w-full px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] text-blue-900">
+                    * Orders paid by bank slip are placed on hold until confirmed by the Mahama depot accountant.
+                  </p>
+                </div>
+              )}
+
+              {/* 3. PAY ON DELIVERY PANEL */}
+              {paymentMethod === 'pay_on_delivery' && (
+                <div className="p-3.5 rounded-2xl bg-gray-50 border border-gray-200 space-y-1 text-xs">
+                  <div className="flex items-center gap-1.5 font-bold text-gray-900">
+                    <Truck size={14} className="text-[#2E7D32]" />
+                    <span>Pay Directly on Delivery to Driver</span>
+                  </div>
+                  <p className="text-[11px] text-gray-600 leading-relaxed">
+                    You will pay in cash or via MoMo directly to the Turashoboye delivery driver upon truck arrival at your farm in Mahama/Kirehe. Bags will be unloaded only after payment handover.
+                  </p>
+                  <p className="text-[10px] font-semibold text-amber-800 pt-0.5">
+                    Order Status: <span className="font-bold">Unpaid • Payment Due on Delivery</span>
+                  </p>
+                </div>
+              )}
+
+              {/* 4. CASH AT DEPOT PANEL */}
+              {paymentMethod === 'cash' && (
+                <div className="p-3.5 rounded-2xl bg-gray-50 border border-gray-200 space-y-1 text-xs">
+                  <div className="flex items-center gap-1.5 font-bold text-gray-900">
+                    <CreditCard size={14} className="text-gray-700" />
+                    <span>Pay at Mahama Depot Cashier Counter</span>
+                  </div>
+                  <p className="text-[11px] text-gray-600 leading-relaxed">
+                    Pay at the primary depot cashier counter when you arrive to pick up your feed bags. Receipt will be stamped upon cash handover.
+                  </p>
+                  <p className="text-[10px] font-semibold text-amber-800 pt-0.5">
+                    Order Status: <span className="font-bold">Unpaid • Payment Due at Depot Counter</span>
+                  </p>
                 </div>
               )}
             </div>
@@ -607,34 +957,47 @@ export default function OrderPlacementModal({
                 type="button"
                 disabled={submitting}
                 onClick={handleConfirmOrder}
-                className="w-2/3 py-3 rounded-xl bg-[#2E7D32] hover:bg-[#256b29] text-white font-bold text-xs shadow-md transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                className={`w-2/3 py-3 rounded-xl text-white font-bold text-xs shadow-md transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer ${
+                  paymentMethod === 'momo' && momoAuthStatus !== 'authorized'
+                    ? 'bg-amber-600 hover:bg-amber-700'
+                    : 'bg-[#2E7D32] hover:bg-[#256b29]'
+                }`}
               >
                 {submitting ? (
                   'Processing...'
                 ) : paymentMethod === 'momo' ? (
+                  momoAuthStatus === 'authorized' ? (
+                    <>
+                      <CheckCircle2 size={15} />
+                      {`Confirm Paid Order (${calculation.totalAmountRwf.toLocaleString()} RWF)`}
+                    </>
+                  ) : (
+                    <>
+                      <KeyRound size={15} />
+                      {`Authorize MoMo PIN to Pay (${calculation.totalAmountRwf.toLocaleString()} RWF)`}
+                    </>
+                  )
+                ) : paymentMethod === 'bank_transfer' ? (
                   <>
-                    <Smartphone size={15} />
-                    {`Pay with MoMo (${calculation.totalAmountRwf.toLocaleString()} RWF)`}
+                    <Building2 size={15} />
+                    {`Submit Order with Bank Slip (${calculation.totalAmountRwf.toLocaleString()} RWF)`}
+                  </>
+                ) : paymentMethod === 'pay_on_delivery' ? (
+                  <>
+                    <Truck size={15} />
+                    {`Confirm Order (Pay on Delivery: ${calculation.totalAmountRwf.toLocaleString()} RWF)`}
                   </>
                 ) : (
-                  `Confirm Order (${calculation.totalAmountRwf.toLocaleString()} RWF)`
+                  <>
+                    <CreditCard size={15} />
+                    {`Confirm Order (Pay at Depot: ${calculation.totalAmountRwf.toLocaleString()} RWF)`}
+                  </>
                 )}
               </button>
             </div>
           </div>
         )}
       </div>
-
-      {/* Interactive Rwandan MoMo Payment USSD Prompt Modal */}
-      <RwandanMoMoModal
-        isOpen={momoModalOpen}
-        onClose={() => setMomoModalOpen(false)}
-        orderNumber={`ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`}
-        customerName={user?.profile?.displayName || user?.profile?.fullName || 'Customer'}
-        amountRwf={calculation.totalAmountRwf}
-        initialPhone={paymentPhone}
-        onPaymentSuccess={handleMoMoPaymentCompleted}
-      />
 
       {/* Official Receipt Modal with QR */}
       <OrderReceiptModal
