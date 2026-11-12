@@ -1,9 +1,11 @@
 // src/components/layout/Sidebar.tsx
 /**
  * Collapsible sidebar navigation component for Turashoboye Feeds.
- * Organizes menu items with category section headers and nested sub-item indentation.
+ * Features foldable/collapsible menu folders with expand/collapse chevron toggles
+ * and indented sub-item routing.
  */
-import { NavLink } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import {
   X,
   Home,
@@ -22,6 +24,7 @@ import {
   TrendingUp,
   ShoppingBag,
   Wallet,
+  ChevronDown,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { UserRole } from "../../types/database";
@@ -31,33 +34,48 @@ interface SidebarProps {
   onClose: () => void;
 }
 
-interface NavItemConfig {
+interface NavSubItem {
   to: string;
   label: string;
   icon: any;
   roles: readonly UserRole[];
-  indent?: boolean;
+}
+
+interface NavItemConfig {
+  id?: string;
+  to?: string;
+  label: string;
+  icon: any;
+  roles: readonly UserRole[];
   sectionHeader?: string;
+  children?: NavSubItem[];
 }
 
 const getNavItems = (role: UserRole): NavItemConfig[] => [
   // SECTION: GOVERNANCE
   {
-    to: "/admin",
-    label: "Platform Admin",
+    id: "admin",
+    label: "Platform Admin & Users",
     icon: Shield,
     roles: [UserRole.SUPER_ADMIN, UserRole.OWNER],
     sectionHeader: "Governance",
-  },
-  {
-    to: "/users",
-    label: "User Management",
-    icon: Users,
-    roles: [UserRole.SUPER_ADMIN, UserRole.OWNER],
-    indent: true,
+    children: [
+      {
+        to: "/admin",
+        label: "Platform Admin",
+        icon: Shield,
+        roles: [UserRole.SUPER_ADMIN, UserRole.OWNER],
+      },
+      {
+        to: "/users",
+        label: "User Management",
+        icon: Users,
+        roles: [UserRole.SUPER_ADMIN, UserRole.OWNER],
+      },
+    ],
   },
 
-  // SECTION: OPERATIONS
+  // SECTION: CORE OPERATIONS (Direct links)
   {
     to: "/dashboard",
     label:
@@ -83,75 +101,94 @@ const getNavItems = (role: UserRole): NavItemConfig[] => [
     roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN],
   },
 
-  // SECTION: PRODUCTION & FORMULATIONS
+  // SECTION: PRODUCTION & FORMULATIONS (Foldable parent)
   {
-    to: "/production",
-    label: "Milling Batches",
+    id: "production",
+    label: "Milling & Formulas",
     icon: Factory,
     roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN],
     sectionHeader: "Milling & Formulas",
-  },
-  {
-    to: "/production/formulas",
-    label: "Feed Formulations & LCF",
-    icon: Beaker,
-    roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN],
-    indent: true,
-  },
-  {
-    to: "/production/traceability",
-    label: "Batch Traceability",
-    icon: Compass,
-    roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN],
-    indent: true,
+    children: [
+      {
+        to: "/production",
+        label: "Milling Batches",
+        icon: Factory,
+        roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN],
+      },
+      {
+        to: "/production/formulas",
+        label: "Feed Formulations & LCF",
+        icon: Beaker,
+        roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN],
+      },
+      {
+        to: "/production/traceability",
+        label: "Batch Traceability",
+        icon: Compass,
+        roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN],
+      },
+    ],
   },
 
-  // SECTION: INVENTORY & PROCUREMENT
+  // SECTION: INVENTORY & SUPPLY (Foldable parent)
   {
-    to: "/inventory",
-    label: "Stock Ledger",
+    id: "inventory",
+    label: "Inventory & Sourcing",
     icon: Truck,
     roles: [UserRole.INVENTORY, UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN],
     sectionHeader: "Inventory & Supply",
-  },
-  {
-    to: "/procurement/orders",
-    label: "Purchase Orders",
-    icon: ClipboardList,
-    roles: [UserRole.INVENTORY, UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN],
-  },
-  {
-    to: "/procurement/suppliers",
-    label: "Grain Suppliers",
-    icon: Building2,
-    roles: [UserRole.INVENTORY, UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN],
-    indent: true,
+    children: [
+      {
+        to: "/inventory",
+        label: "Stock Ledger",
+        icon: Truck,
+        roles: [UserRole.INVENTORY, UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN],
+      },
+      {
+        to: "/procurement/orders",
+        label: "Purchase Orders",
+        icon: ClipboardList,
+        roles: [UserRole.INVENTORY, UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN],
+      },
+      {
+        to: "/procurement/suppliers",
+        label: "Grain Suppliers",
+        icon: Building2,
+        roles: [UserRole.INVENTORY, UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN],
+      },
+    ],
   },
 
-  // SECTION: SALES & CREDIT (Specifically nested as requested by user)
+  // SECTION: SALES & CO-OP CREDIT (Foldable parent)
   {
-    to: "/sales",
-    label: "Sales & Orders",
+    id: "sales",
+    label: "Sales & Co-op Credit",
     icon: ShoppingCart,
     roles: [UserRole.SALES_STAFF, UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN],
     sectionHeader: "Sales & Co-op Credit",
-  },
-  {
-    to: "/sales/credit-ledger",
-    label: "Co-op Credit & Layaway",
-    icon: Wallet,
-    roles: [UserRole.SALES_STAFF, UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN],
-    indent: true,
-  },
-  {
-    to: "/customers",
-    label: "Customer Directory",
-    icon: Users,
-    roles: [UserRole.SALES_STAFF, UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN],
-    indent: true,
+    children: [
+      {
+        to: "/sales",
+        label: "Sales & Orders",
+        icon: ShoppingCart,
+        roles: [UserRole.SALES_STAFF, UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN],
+      },
+      {
+        to: "/sales/credit-ledger",
+        label: "Co-op Credit & Layaway",
+        icon: Wallet,
+        roles: [UserRole.SALES_STAFF, UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN],
+      },
+      {
+        to: "/customers",
+        label: "Customer Directory",
+        icon: Users,
+        roles: [UserRole.SALES_STAFF, UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN],
+      },
+    ],
   },
 
-  // SECTION: COMPLIANCE & INTELLIGENCE
+  // SECTION: COMPLIANCE & INTELLIGENCE (Direct links)
   {
     to: "/compliance",
     label: "Compliance & RSB",
@@ -180,8 +217,41 @@ const getNavItems = (role: UserRole): NavItemConfig[] => [
 ];
 
 export const Sidebar = ({ open, onClose }: SidebarProps) => {
+  const location = useLocation();
   const { user, signOut } = useAuth();
   const role = user?.profile?.role ?? UserRole.PUBLIC;
+
+  // Track fold/unfold state for each group
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    sales: true, // Default open for quick access
+    production: true,
+    inventory: false,
+    admin: false,
+  });
+
+  // Automatically unfold the folder if user is currently on any child path
+  useEffect(() => {
+    const path = location.pathname;
+    if (path.startsWith("/sales") || path.startsWith("/customers")) {
+      setOpenGroups((prev) => ({ ...prev, sales: true }));
+    }
+    if (path.startsWith("/production")) {
+      setOpenGroups((prev) => ({ ...prev, production: true }));
+    }
+    if (path.startsWith("/inventory") || path.startsWith("/procurement")) {
+      setOpenGroups((prev) => ({ ...prev, inventory: true }));
+    }
+    if (path.startsWith("/admin") || path.startsWith("/users")) {
+      setOpenGroups((prev) => ({ ...prev, admin: true }));
+    }
+  }, [location.pathname]);
+
+  const toggleGroup = (groupId: string) => {
+    setOpenGroups((prev) => ({
+      ...prev,
+      [groupId]: !prev[groupId],
+    }));
+  };
 
   const accessibleNavItems = getNavItems(role).filter((item) => {
     if (role === UserRole.SUPER_ADMIN || role === UserRole.OWNER) {
@@ -207,7 +277,7 @@ export const Sidebar = ({ open, onClose }: SidebarProps) => {
           open ? "translate-x-0" : "-translate-x-full"
         } lg:translate-x-0 flex flex-col`}
       >
-        {/* Header with close button on mobile */}
+        {/* Header with logo */}
         <div className="flex items-center justify-between p-4 border-b border-gray-800 flex-shrink-0">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#2E7D32] text-sm font-bold text-white shadow-xs">
@@ -227,13 +297,21 @@ export const Sidebar = ({ open, onClose }: SidebarProps) => {
           </button>
         </div>
 
-        {/* Nav links */}
+        {/* Navigation list */}
         <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
           {accessibleNavItems.map((item, idx) => {
             const Icon = item.icon;
+            const hasChildren = item.children && item.children.length > 0;
+            const isGroupOpen = item.id ? openGroups[item.id] ?? false : false;
+
+            // Check if any child of this folder is currently active
+            const isAnyChildActive = hasChildren
+              ? item.children!.some((sub) => location.pathname === sub.to)
+              : false;
+
             return (
-              <div key={item.to}>
-                {/* Optional Section Header */}
+              <div key={item.id || item.to || idx}>
+                {/* Section Header */}
                 {item.sectionHeader && (
                   <div
                     className={`px-3 text-[10px] font-bold uppercase tracking-wider text-gray-500 ${
@@ -244,34 +322,72 @@ export const Sidebar = ({ open, onClose }: SidebarProps) => {
                   </div>
                 )}
 
-                <NavLink
-                  to={item.to}
-                  onClick={() => onClose()}
-                  className={({ isActive }) => {
-                    if (item.indent) {
-                      // Sub-item styling: indented with left connector line
-                      return `group flex items-center gap-2.5 py-1.5 pl-7 pr-3 rounded-lg text-xs font-medium transition-colors ml-2 border-l border-gray-800 ${
-                        isActive
-                          ? "bg-emerald-950/70 text-emerald-300 font-bold border-l-2 border-[#2E7D32]"
-                          : "text-gray-400 hover:bg-gray-800/60 hover:text-white"
-                      }`;
-                    }
+                {/* Case A: Foldable Parent with Sub-items */}
+                {hasChildren ? (
+                  <div className="space-y-0.5">
+                    <button
+                      type="button"
+                      onClick={() => toggleGroup(item.id!)}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                        isAnyChildActive
+                          ? "bg-gray-800/90 text-white"
+                          : "text-gray-300 hover:bg-gray-800/60 hover:text-white"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Icon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        <span className="truncate">{item.label}</span>
+                      </div>
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${
+                          isGroupOpen ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
 
-                    // Top-level item styling
-                    return `flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                      isActive
-                        ? "bg-[#2E7D32] text-white font-bold shadow-xs"
-                        : "text-gray-300 hover:bg-gray-800 hover:text-white"
-                    }`;
-                  }}
-                >
-                  <Icon
-                    className={`flex-shrink-0 ${
-                      item.indent ? "w-3.5 h-3.5 text-gray-400 group-hover:text-white" : "w-4 h-4"
-                    }`}
-                  />
-                  <span className="truncate">{item.label}</span>
-                </NavLink>
+                    {/* Unfolded Sub-Items List */}
+                    {isGroupOpen && (
+                      <div className="space-y-0.5 ml-2.5 pl-3 border-l border-gray-800 my-0.5">
+                        {item.children!.map((sub) => {
+                          const SubIcon = sub.icon;
+                          return (
+                            <NavLink
+                              key={sub.to}
+                              to={sub.to}
+                              onClick={() => onClose()}
+                              className={({ isActive }) =>
+                                `flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-xs transition-colors ${
+                                  isActive
+                                    ? "bg-emerald-950/80 text-emerald-300 font-bold border-l-2 border-[#2E7D32]"
+                                    : "text-gray-400 hover:bg-gray-800/60 hover:text-white font-medium"
+                                }`
+                              }
+                            >
+                              <SubIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                              <span className="truncate">{sub.label}</span>
+                            </NavLink>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Case B: Standalone Direct NavLink */
+                  <NavLink
+                    to={item.to!}
+                    onClick={() => onClose()}
+                    className={({ isActive }) =>
+                      `flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                        isActive
+                          ? "bg-[#2E7D32] text-white font-bold shadow-xs"
+                          : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                      }`
+                    }
+                  >
+                    <Icon className="w-4 h-4 flex-shrink-0" />
+                    <span className="truncate">{item.label}</span>
+                  </NavLink>
+                )}
               </div>
             );
           })}
