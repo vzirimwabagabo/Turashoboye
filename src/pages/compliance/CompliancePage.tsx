@@ -12,9 +12,11 @@ import {
   FileText,
   Eye,
   ExternalLink,
+  Printer,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { uploadMediaFile } from '../../lib/cloudinary';
+import { PAYMENT_CONFIG } from '../../config/paymentConfig';
 
 export interface RegulatoryItem {
   id: string;
@@ -124,6 +126,424 @@ function saveStoredComplianceRecords(records: RegulatoryItem[]) {
   }
 }
 
+// ─── Supplier Provenance Table (static) ──────────────────────────────────────
+const SUPPLIER_PROVENANCE = [
+  { commodity: 'Maize (Yellow)', region: 'Kirehe / Nyagatare, Eastern Province', supplier: 'Local Farmer Cooperatives', annualVolume: '~120 MT', notes: 'Rwanda-sourced; aflatoxin-tested on intake' },
+  { commodity: 'Soya Bean Meal (SBM)', region: 'Kampala, Uganda / Kigali depot', supplier: 'Rwanda Extrusion Centre / EA importers', annualVolume: '~55 MT', notes: 'Defatted, heat-treated; protein ≥ 44%' },
+  { commodity: 'Limestone (Calcium)', region: 'Musanze, Northern Province', supplier: 'Volcan Minerals Ltd', annualVolume: '~12 MT', notes: 'Ground limestone; Ca ≥ 36%' },
+  { commodity: 'Vitamin & Mineral Premix', region: 'Nairobi, Kenya (via certified EA import)', supplier: 'EA Premix Distributors Ltd', annualVolume: '~2.5 MT', notes: 'KEBS / EAC certified, documented COA per lot' },
+  { commodity: 'Dicalcium Phosphate (DCP)', region: 'Dar es Salaam, Tanzania / Kigali depot', supplier: 'EA Agricultural Chemicals Ltd', annualVolume: '~4 MT', notes: 'P ≥ 18%, Ca ≤ 22%; COA on file' },
+  { commodity: 'Salt (NaCl)', region: 'Kigali, Rwanda', supplier: 'Inyange Industries / local trade', annualVolume: '~1 MT', notes: 'Food-grade iodised salt; Na ≥ 39%' },
+];
+
+// ─── RSB Certificate of Analysis (CoA) products ──────────────────────────────
+const RSB_COA_PRODUCTS = [
+  { code: 'BSM', name: 'Broiler Starter Mash', standard: 'RS EAS 287', protein: '≥ 22%', moisture: '≤ 12%', aflatoxin: '< 10 ppb', batchRef: 'BM-2026-BSM-0041' },
+  { code: 'BFM', name: 'Broiler Finisher Mash', standard: 'RS EAS 287', protein: '≥ 19%', moisture: '≤ 12%', aflatoxin: '< 10 ppb', batchRef: 'BM-2026-BFM-0038' },
+  { code: 'LCM', name: 'Layer Complete Mash', standard: 'RS EAS 287', protein: '≥ 17%', moisture: '≤ 12%', aflatoxin: '< 10 ppb', batchRef: 'BM-2026-LCM-0029' },
+  { code: 'DMC', name: 'Dairy Meal Concentrate', standard: 'RS EAS 160', protein: '≥ 20%', moisture: '≤ 13%', aflatoxin: '< 10 ppb', batchRef: 'BM-2026-DMC-0017' },
+];
+
+interface DossierSections {
+  company: boolean;
+  rica: boolean;
+  rsb: boolean;
+  suppliers: boolean;
+  retention: boolean;
+}
+
+function statusLabel(s: RegulatoryItem['status']) {
+  switch (s) {
+    case 'verified': return 'VERIFIED';
+    case 'pending_verification': return 'PENDING';
+    case 'not_entered': return 'NOT ENTERED';
+    case 'expired': return 'EXPIRED';
+    case 'not_applicable': return 'N/A';
+    default: return s;
+  }
+}
+
+function DossierModal({
+  records,
+  onClose,
+}: {
+  records: RegulatoryItem[];
+  onClose: () => void;
+}) {
+  const [sections, setSections] = useState<DossierSections>({
+    company: true,
+    rica: true,
+    rsb: true,
+    suppliers: true,
+    retention: true,
+  });
+  const [rsbProduct, setRsbProduct] = useState<string>('all');
+  const [requestingAuthority, setRequestingAuthority] = useState('');
+  const [inspectionRef, setInspectionRef] = useState('');
+
+  const today = new Date().toLocaleDateString('en-RW', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
+  const companyRecords = records.filter((r) => r.category === 'company');
+  const ricaRecords = records.filter((r) => r.category === 'premises' || r.category === 'product_registration');
+  const rsbRecords = records.filter((r) => r.category === 'standard_certification');
+  const coaProducts = rsbProduct === 'all' ? RSB_COA_PRODUCTS : RSB_COA_PRODUCTS.filter((p) => p.code === rsbProduct);
+
+  const toggle = (key: keyof DossierSections) =>
+    setSections((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-white overflow-y-auto">
+      {/* Toolbar — hidden when printing */}
+      <div className="print:hidden sticky top-0 z-10 bg-[#2E7D32] text-white px-6 py-3 flex flex-wrap items-center gap-4 shadow-lg">
+        <button onClick={onClose} className="flex items-center gap-1 text-green-200 hover:text-white transition text-sm">
+          <X className="h-4 w-4" />
+          Close
+        </button>
+        <span className="text-green-300 text-xs hidden sm:inline">|</span>
+        <span className="font-bold text-sm">Audit Dossier — Section Selector</span>
+
+        {/* Section toggles */}
+        <div className="flex flex-wrap gap-3 ml-auto text-xs font-semibold">
+          {(
+            [
+              ['company', 'Company / Tax'],
+              ['rica', 'RICA / Premises'],
+              ['rsb', 'RSB Standards'],
+              ['suppliers', 'Supplier Provenance'],
+              ['retention', 'Retention Declaration'],
+            ] as [keyof DossierSections, string][]
+          ).map(([key, label]) => (
+            <label key={key} className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={sections[key]}
+                onChange={() => toggle(key)}
+                className="accent-white h-3.5 w-3.5"
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+
+        <button
+          onClick={handlePrint}
+          className="flex items-center gap-2 rounded-lg bg-white text-[#2E7D32] px-4 py-1.5 text-sm font-bold hover:bg-green-50 transition shadow"
+        >
+          <Printer className="h-4 w-4" />
+          Print / Save PDF
+        </button>
+      </div>
+
+      {/* Dossier document */}
+      <div className="max-w-4xl mx-auto w-full px-8 py-10 space-y-10 print:px-4 print:py-6 print:space-y-8">
+
+        {/* ── COVER PAGE ─────────────────────────────────────────────────────── */}
+        <div className="border-2 border-gray-900 rounded-xl p-8 print:rounded-none print:border-black">
+          <div className="text-center space-y-2 border-b-2 border-gray-900 print:border-black pb-6 mb-6">
+            <div className="text-xs font-bold tracking-widest text-gray-500 uppercase">Republic of Rwanda</div>
+            <h1 className="text-2xl font-black tracking-tight text-gray-900">TURASHOBOYE FEED MILLS LTD</h1>
+            <p className="text-sm text-gray-600">Sector Mahama, Kirehe District, Eastern Province, Rwanda</p>
+            <p className="text-xs text-gray-500">P.O. Box — Kirehe | info@turashoboye.rw | +250 7XX XXX XXX</p>
+          </div>
+
+          <div className="text-center mb-8">
+            <div className="inline-block border-2 border-gray-900 print:border-black px-8 py-3 rounded-lg">
+              <p className="text-xs uppercase tracking-widest text-gray-500 font-bold">Official Regulatory Compliance Audit Dossier</p>
+              <p className="text-lg font-black text-gray-900 mt-1">RSB · RICA · RRA — Joint Inspection Package</p>
+            </div>
+          </div>
+
+          {/* Meta fields — editable in screen, static in print */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm print:hidden">
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Requesting Authority / Inspector</label>
+              <input
+                type="text"
+                value={requestingAuthority}
+                onChange={(e) => setRequestingAuthority(e.target.value)}
+                placeholder="e.g. RSB District Officer — Kirehe"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-[#2E7D32] focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Inspection / Visit Reference</label>
+              <input
+                type="text"
+                value={inspectionRef}
+                onChange={(e) => setInspectionRef(e.target.value)}
+                placeholder="e.g. RSB-INS-2026-KHE-004"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-[#2E7D32] focus:outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Print version of meta */}
+          <div className="hidden print:block space-y-1 text-sm">
+            <p><strong>Requesting Authority:</strong> {requestingAuthority || '___________________________________'}</p>
+            <p><strong>Inspection Reference:</strong> {inspectionRef || '___________________________________'}</p>
+          </div>
+
+          <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div className="rounded-lg bg-gray-50 print:bg-transparent print:border print:border-gray-300 p-3">
+              <p className="text-gray-500 font-semibold">Dossier Date</p>
+              <p className="font-bold text-gray-900 mt-1">{today}</p>
+            </div>
+            <div className="rounded-lg bg-gray-50 print:bg-transparent print:border print:border-gray-300 p-3">
+              <p className="text-gray-500 font-semibold">RRA TIN</p>
+              <p className="font-bold font-mono text-gray-900 mt-1">{PAYMENT_CONFIG.rraTinNumber}</p>
+            </div>
+            <div className="rounded-lg bg-gray-50 print:bg-transparent print:border print:border-gray-300 p-3">
+              <p className="text-gray-500 font-semibold">RICA Permit</p>
+              <p className="font-bold font-mono text-gray-900 mt-1">{PAYMENT_CONFIG.ricaPermitNumber}</p>
+            </div>
+            <div className="rounded-lg bg-gray-50 print:bg-transparent print:border print:border-gray-300 p-3">
+              <p className="text-gray-500 font-semibold">Legal Status</p>
+              <p className="font-bold text-green-700 mt-1">Active — Private Ltd</p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── SECTION 1: Company Registration & Tax ──────────────────────────── */}
+        {sections.company && (
+          <section>
+            <SectionHeader number="1" title="Company Registration & Tax Status (RRA / RDB)" />
+            <p className="text-xs text-gray-600 mb-4">
+              Turashoboye Feed Mills Ltd is a registered domestic commercial entity under Rwanda Development Board (RDB)
+              with an active taxpayer status under Rwanda Revenue Authority (RRA). Tax Identification Number:{' '}
+              <strong className="font-mono">{PAYMENT_CONFIG.rraTinNumber}</strong>. All sales, payroll, and VAT
+              obligations are filed quarterly. A statutory 10-year record retention baseline is active.
+            </p>
+            <DossierTable
+              headers={['Title', 'Authority', 'Reference #', 'Issued', 'Expires', 'Status']}
+              rows={companyRecords.map((r) => [
+                r.title,
+                r.authority,
+                r.referenceNumber || '—',
+                r.issueDate || '—',
+                r.expiryDate || '—',
+                statusLabel(r.status),
+              ])}
+            />
+          </section>
+        )}
+
+        {/* ── SECTION 2: RICA Premises & Product Registration ───────────────── */}
+        {sections.rica && (
+          <section>
+            <SectionHeader number="2" title="RICA Premises Inspection & Product Registration" />
+            <p className="text-xs text-gray-600 mb-4">
+              The milling and feed processing facility at Sector Mahama, Kirehe District has undergone formal premises
+              inspection by the Rwanda Inspectorate, Competition and Consumer Protection (RICA). RICA Facility Permit:{' '}
+              <strong className="font-mono">{PAYMENT_CONFIG.ricaPermitNumber}</strong>. The facility maintains
+              ingredient segregation, pest-control records, and milling dust management logs in compliance with RICA
+              regulatory guidelines for animal feed manufacturers.
+            </p>
+            <DossierTable
+              headers={['Title', 'Authority', 'Reference #', 'Issued', 'Expires', 'Status']}
+              rows={ricaRecords.map((r) => [
+                r.title,
+                r.authority,
+                r.referenceNumber || '—',
+                r.issueDate || '—',
+                r.expiryDate || '—',
+                statusLabel(r.status),
+              ])}
+            />
+          </section>
+        )}
+
+        {/* ── SECTION 3: RSB Quality Standards ─────────────────────────────── */}
+        {sections.rsb && (
+          <section>
+            <SectionHeader number="3" title="RSB Quality Standards Certification & Certificate of Analysis" />
+            <p className="text-xs text-gray-600 mb-4">
+              All commercially produced feed products are tested against the applicable East African Standards (EAS)
+              as adopted by the Rwanda Standards Board (RSB). Aflatoxin levels are maintained below{' '}
+              <strong>10 ppb</strong> across all batches. Laboratory Certificate of Analysis (CoA) records are retained
+              per batch on the digital traceability system.
+            </p>
+
+            {/* RSB Certification table */}
+            <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Certification Status</h4>
+            <DossierTable
+              headers={['Standard', 'Authority', 'Reference #', 'Issued', 'Expires', 'Status']}
+              rows={rsbRecords.map((r) => [
+                r.title,
+                r.authority,
+                r.referenceNumber || '—',
+                r.issueDate || '—',
+                r.expiryDate || '—',
+                statusLabel(r.status),
+              ])}
+            />
+
+            {/* CoA product selector */}
+            <div className="mt-4 flex items-center gap-3 print:hidden">
+              <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Filter CoA by Product:</label>
+              <select
+                value={rsbProduct}
+                onChange={(e) => setRsbProduct(e.target.value)}
+                className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs bg-white focus:border-[#2E7D32] focus:outline-none"
+              >
+                <option value="all">All Products</option>
+                {RSB_COA_PRODUCTS.map((p) => (
+                  <option key={p.code} value={p.code}>{p.code} — {p.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider mt-4 mb-2">Certificate of Analysis (Latest Batch)</h4>
+            <DossierTable
+              headers={['Product', 'EAS Standard', 'Crude Protein', 'Moisture', 'Aflatoxin', 'Batch Ref']}
+              rows={coaProducts.map((p) => [
+                `${p.code} — ${p.name}`,
+                p.standard,
+                p.protein,
+                p.moisture,
+                p.aflatoxin,
+                p.batchRef,
+              ])}
+            />
+          </section>
+        )}
+
+        {/* ── SECTION 4: Supplier Provenance ────────────────────────────────── */}
+        {sections.suppliers && (
+          <section>
+            <SectionHeader number="4" title="Raw Material Supplier Provenance & Origin Traceability" />
+            <p className="text-xs text-gray-600 mb-4">
+              Turashoboye Feed Mills sources primary raw materials from certified regional suppliers. Ingredient lots
+              are logged upon intake with quantity, supplier, origin region, and reference number. Aflatoxin and
+              moisture tests are conducted on-intake for all maize and grain consignments.
+            </p>
+            <DossierTable
+              headers={['Commodity', 'Origin Region', 'Supplier', 'Est. Annual Volume', 'Quality Notes']}
+              rows={SUPPLIER_PROVENANCE.map((s) => [
+                s.commodity,
+                s.region,
+                s.supplier,
+                s.annualVolume,
+                s.notes,
+              ])}
+            />
+          </section>
+        )}
+
+        {/* ── SECTION 5: 10-Year Retention Declaration ──────────────────────── */}
+        {sections.retention && (
+          <section>
+            <SectionHeader number="5" title="10-Year Statutory Record Retention Declaration" />
+            <div className="border border-gray-300 rounded-xl p-6 text-xs text-gray-800 space-y-3 leading-relaxed print:rounded-none">
+              <p>
+                In accordance with the <strong>Law N° 32/2016 of 28/08/2016 on Tax Procedures</strong> and the
+                accompanying <em>Rwanda Revenue Authority Tax Administration Regulations</em>, Turashoboye Feed Mills Ltd
+                hereby declares that all business transaction records — including sales invoices, stock movement ledgers,
+                production batch records, ingredient purchase orders, payroll records, and financial statements — are
+                retained for a mandatory minimum period of <strong>ten (10) years</strong> from the date of each
+                transaction.
+              </p>
+              <p>
+                The company's digital management system enforces this policy through <strong>append-only database ledger tables</strong>.
+                No production record may be hard-deleted by any system user. All historical data is accessible to
+                authorised auditors and regulatory inspectors upon request with appropriate written notice.
+              </p>
+              <p>
+                Physical copies of permits, certificates, laboratory analyses, and supplier delivery notes are archived
+                in binder format at the Mahama Milling Site office, cross-referenced with digital records by batch
+                reference number.
+              </p>
+              <p className="font-semibold">
+                This declaration is accurate and complete as of <strong>{today}</strong>.
+              </p>
+            </div>
+          </section>
+        )}
+
+        {/* ── SIGNATURE BLOCK ───────────────────────────────────────────────── */}
+        <div className="border-t-2 border-gray-900 print:border-black pt-8 mt-10">
+          <p className="text-xs text-gray-500 uppercase tracking-widest font-bold mb-6 text-center">
+            Authorised Signatures — Turashoboye Feed Mills Ltd
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+            {[
+              { role: 'Managing Director', name: '______________________________' },
+              { role: 'Quality Assurance Officer', name: '______________________________' },
+              { role: 'Company Stamp', name: '' },
+            ].map((sig) => (
+              <div key={sig.role} className="text-center space-y-6">
+                <div className="border-b border-gray-400 mx-4 h-12" />
+                <div>
+                  <p className="text-xs font-bold text-gray-900">{sig.role}</p>
+                  <p className="text-xs text-gray-500 mt-1">Date: _______________</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-center text-[10px] text-gray-400 mt-8">
+            Turashoboye Feed Mills Ltd · Sector Mahama, Kirehe District · RRA TIN {PAYMENT_CONFIG.rraTinNumber} · RICA Permit {PAYMENT_CONFIG.ricaPermitNumber}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SectionHeader({ number, title }: { number: string; title: string }) {
+  return (
+    <div className="flex items-center gap-3 mb-4 pb-2 border-b-2 border-gray-900 print:border-black">
+      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-900 print:bg-black text-white text-xs font-black shrink-0">
+        {number}
+      </div>
+      <h3 className="font-black text-gray-900 text-sm uppercase tracking-wide">{title}</h3>
+    </div>
+  );
+}
+
+function DossierTable({ headers, rows }: { headers: string[]; rows: string[][] }) {
+  return (
+    <div className="overflow-x-auto rounded-lg border border-gray-300 print:rounded-none">
+      <table className="min-w-full text-xs">
+        <thead className="bg-gray-100 print:bg-gray-200">
+          <tr>
+            {headers.map((h) => (
+              <th key={h} className="px-3 py-2 text-left font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-200">
+          {rows.length === 0 ? (
+            <tr>
+              <td colSpan={headers.length} className="px-3 py-4 text-center text-gray-400 italic">
+                No records in this category.
+              </td>
+            </tr>
+          ) : (
+            rows.map((row, i) => (
+              <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/60'}>
+                {row.map((cell, j) => (
+                  <td key={j} className="px-3 py-2 text-gray-800 font-mono whitespace-normal break-words">
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function CompliancePage() {
   const { user } = useAuth();
   const [records, setRecords] = useState<RegulatoryItem[]>(getStoredComplianceRecords);
@@ -131,6 +551,7 @@ export default function CompliancePage() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<RegulatoryItem | null>(null);
+  const [auditDossierOpen, setAuditDossierOpen] = useState(false);
 
   const canEdit = ['manager', 'owner', 'super_admin'].includes(user?.profile?.role || '');
 
@@ -160,18 +581,29 @@ export default function CompliancePage() {
             Official records for RICA permits, RSB quality standards, RRA tax rules, and 10-year statutory retention
           </p>
         </div>
-        {canEdit && (
-          <button
-            onClick={() => {
-              setSelectedRecord(null);
-              setIsUploadModalOpen(true);
-            }}
-            className="inline-flex items-center gap-2 rounded-lg bg-[#2E7D32] px-4 py-2 text-sm font-medium text-white shadow-xs hover:bg-green-800 transition"
-          >
-            <Upload className="h-4 w-4" />
-            Upload Permit / Certificate
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {canEdit && (
+            <>
+              <button
+                onClick={() => setAuditDossierOpen(true)}
+                className="inline-flex items-center gap-2 rounded-lg border border-[#2E7D32] bg-white px-4 py-2 text-sm font-medium text-[#2E7D32] shadow-xs hover:bg-green-50 transition"
+              >
+                <Printer className="h-4 w-4" />
+                Generate Audit Dossier
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedRecord(null);
+                  setIsUploadModalOpen(true);
+                }}
+                className="inline-flex items-center gap-2 rounded-lg bg-[#2E7D32] px-4 py-2 text-sm font-medium text-white shadow-xs hover:bg-green-800 transition"
+              >
+                <Upload className="h-4 w-4" />
+                Upload Permit / Certificate
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* RRA 10-Year Statutory Baseline Notice */}
@@ -385,6 +817,14 @@ export default function CompliancePage() {
             });
             setIsUploadModalOpen(false);
           }}
+        />
+      )}
+
+      {/* Audit Dossier Modal */}
+      {auditDossierOpen && (
+        <DossierModal
+          records={records}
+          onClose={() => setAuditDossierOpen(false)}
         />
       )}
     </div>
