@@ -18,7 +18,7 @@ export interface PlaceOrderParams {
   customerEmail?: string;
   deliveryAddress: string;
   fulfillmentType: 'pickup' | 'delivery';
-  paymentMethod: 'cash' | 'momo' | 'bank_transfer' | 'pay_on_delivery';
+  paymentMethod: 'cash' | 'momo' | 'bank_transfer' | 'pay_on_delivery' | 'visa_card';
   paymentPhone?: string;
   paymentReference?: string;
   isPaidOnline?: boolean;
@@ -184,10 +184,10 @@ export async function placeCustomerOrder(params: PlaceOrderParams): Promise<{
     payments: params.isPaidOnline
       ? [
           {
-            method: 'momo',
+            method: (params.paymentMethod === 'visa_card' ? 'visa' : 'momo') as any,
             amountRwf: calculation.totalAmountRwf,
             paymentDate: now.toISOString().split('T')[0],
-            reference: params.paymentReference || `MoMo ${params.paymentPhone || params.customerPhone}`,
+            reference: params.paymentReference || (params.paymentMethod === 'visa_card' ? 'Visa 3D-Secure' : `MoMo ${params.paymentPhone || params.customerPhone}`),
             status: 'confirmed',
           },
         ]

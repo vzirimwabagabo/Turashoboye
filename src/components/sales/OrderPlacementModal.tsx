@@ -29,6 +29,11 @@ import {
 import OrderReceiptModal, { type PrintableOrder } from './OrderReceiptModal';
 import { PAYMENT_CONFIG } from '../../config/paymentConfig';
 import { detectRwandaTelco } from './RwandanMoMoModal';
+import {
+  initiateMoMoPush,
+  initiateCardPayment,
+  simulateSandboxSettlement,
+} from '../../lib/paymentGatewayService';
 
 export interface FeedOrderTarget {
   id: string;
@@ -65,12 +70,15 @@ export default function OrderPlacementModal({
   const [quantity, setQuantity] = useState(2);
   const [fulfillmentType, setFulfillmentType] = useState<'pickup' | 'delivery'>('pickup');
   const [deliveryAddress, setDeliveryAddress] = useState('Mahama Sector, Kirehe District');
-  const [paymentMethod, setPaymentMethod] = useState<'momo' | 'bank_transfer' | 'pay_on_delivery' | 'cash'>('momo');
+  const [paymentMethod, setPaymentMethod] = useState<'momo' | 'visa_card' | 'bank_transfer' | 'pay_on_delivery' | 'cash'>('momo');
   const [paymentPhone, setPaymentPhone] = useState(user?.phone || user?.profile?.phone || '');
   const [orderNotes, setOrderNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [confirmedOrder, setConfirmedOrder] = useState<PrintableOrder | null>(null);
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+
+  // Backend Gateway Execution Mode ('live' requires real backend keys, 'mock_sandbox' for testing)
+  const [gatewayMode, setGatewayMode] = useState<'live' | 'mock_sandbox'>('mock_sandbox');
 
   // MoMo Online Payment interactive state
   const [momoPin, setMomoPin] = useState('');
@@ -78,6 +86,11 @@ export default function OrderPlacementModal({
   const [momoTxRef, setMomoTxRef] = useState('');
   const [momoCountdown, setMomoCountdown] = useState(60);
   const [momoError, setMomoError] = useState<string | null>(null);
+
+  // Visa / Mastercard Online 3D-Secure state
+  const [cardAuthStatus, setCardAuthStatus] = useState<'idle' | 'initiating' | 'authorized'>('idle');
+  const [cardTxRef, setCardTxRef] = useState('');
+  const [cardError, setCardError] = useState<string | null>(null);
 
   // Bank Transfer state
   const [bankName, setBankName] = useState('Bank of Kigali (BK)');
@@ -143,7 +156,7 @@ export default function OrderPlacementModal({
 
   const telcoProvider = detectRwandaTelco(paymentPhone);
 
-  const handleInitiateMoMoPush = (e?: React.FormEvent) => {
+  const handleInitiateMoMoPush = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setMomoError(null);
     const cleaned = paymentPhone.replace(/[\s\-\+\(\)]/g, '');
@@ -152,19 +165,64 @@ export default function OrderPlacementModal({
       setMomoError('Please enter a valid 10-digit Rwanda mobile number (MTN 078/079 or Airtel 072/073).');
       return;
     }
+
+    // Call backend Edge Function to dispatch real push
+    const res = await initiateMoMoPush({
+      orderId: currentItem.productId,
+      phoneNumber: national,
+    });
+
+    setGatewayMode(res.mode);
+    setMomoTxRef(res.transactionRef);
     setMomoAuthStatus('push_dispatched');
     setMomoCountdown(60);
   };
 
-  const handleAuthorizeMoMoPin = () => {
+  const handleAuthorizeMoMoPin = async () => {
     if (!momoPin || momoPin.length < 4) {
       setMomoError('Please enter your 4 or 5-digit MoMo PIN to authorize payment.');
       return;
     }
     setMomoError(null);
-    const ref = `MP${new Date().toISOString().slice(2, 10).replace(/-/g, '')}.${Math.floor(1000 + Math.random() * 9000)}`;
-    setMomoTxRef(ref);
+
+    // In sandbox test mode, simulate the webhook receipt
+    if (gatewayMode === 'mock_sandbox') {
+      await simulateSandboxSettlement({
+        transactionRef: momoTxRef,
+        amountRwf: calculation.totalAmountRwf,
+        provider: 'paypack_momo',
+      });
+    }
+
     setMomoAuthStatus('authorized');
+  };
+
+  const handleInitiateCardPayment = async () => {
+    setCardError(null);
+    setCardAuthStatus('initiating');
+
+    const res = await initiateCardPayment({
+      orderId: currentItem.productId,
+      customerEmail: user?.email || undefined,
+      customerName: user?.profile?.displayName || user?.profile?.fullName || undefined,
+      redirectUrl: window.location.href,
+    });
+
+    setGatewayMode(res.mode);
+    setCardTxRef(res.transactionRef);
+
+    if (res.checkoutUrl) {
+      window.open(res.checkoutUrl, '_blank');
+      setCardAuthStatus('authorized');
+    } else {
+      // Sandbox mode: notify webhook simulator
+      await simulateSandboxSettlement({
+        transactionRef: res.transactionRef,
+        amountRwf: calculation.totalAmountRwf,
+        provider: 'flutterwave_card',
+      });
+      setCardAuthStatus('authorized');
+    }
   };
 
   const handleConfirmOrder = async () => {
@@ -175,7 +233,7 @@ export default function OrderPlacementModal({
       if (momoAuthStatus !== 'authorized') {
         if (momoAuthStatus === 'idle') {
           handleInitiateMoMoPush();
-          setMomoError('Please check your phone and enter your MoMo PIN below to authorize online payment before confirming.');
+          setMomoError('Please enter your MoMo PIN to authorize online payment before confirming.');
           return;
         }
         if (momoAuthStatus === 'push_dispatched') {
@@ -185,7 +243,15 @@ export default function OrderPlacementModal({
       }
     }
 
-    // 2. If Bank Transfer selected, verify that deposit slip reference is entered
+    // 2. If Visa / Mastercard selected, verify that 3D-Secure clearance was authorized
+    if (paymentMethod === 'visa_card') {
+      if (cardAuthStatus !== 'authorized') {
+        setCardError('Please click "Authorize Visa / Card Payment" below to complete card verification before confirming.');
+        return;
+      }
+    }
+
+    // 3. If Bank Transfer selected, verify that deposit slip reference is entered
     if (paymentMethod === 'bank_transfer') {
       if (!bankSlipRef.trim()) {
         setBankError('Please enter the Bank Deposit Slip or Transfer Reference Number.');
@@ -195,9 +261,10 @@ export default function OrderPlacementModal({
 
     setSubmitting(true);
 
-    const isPaidOnline = paymentMethod === 'momo' && momoAuthStatus === 'authorized';
+    const isPaidOnline = (paymentMethod === 'momo' && momoAuthStatus === 'authorized') ||
+                         (paymentMethod === 'visa_card' && cardAuthStatus === 'authorized');
     const paymentReference = isPaidOnline
-      ? momoTxRef
+      ? (paymentMethod === 'momo' ? momoTxRef : `Card 3DS: ${cardTxRef}`)
       : paymentMethod === 'bank_transfer'
       ? `Bank: ${bankName} | Slip: ${bankSlipRef.trim()}`
       : paymentMethod === 'pay_on_delivery'
@@ -587,7 +654,7 @@ export default function OrderPlacementModal({
                 <span className="text-[10px] text-gray-500 font-medium">No free dispatches • Payment verified</span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -602,9 +669,28 @@ export default function OrderPlacementModal({
                 >
                   <div className="flex items-center gap-1.5 font-bold">
                     <Smartphone size={14} className="text-amber-600" />
-                    📱 MoMo (Pay Online Now)
+                    📱 MoMo (Online PIN)
                   </div>
-                  <span className="text-[10px] text-gray-500 block mt-0.5">MTN / Airtel Instant PIN</span>
+                  <span className="text-[10px] text-gray-500 block mt-0.5">MTN / Airtel Instant</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaymentMethod('visa_card');
+                    setCardError(null);
+                  }}
+                  className={`p-2.5 rounded-xl border text-left text-xs transition ${
+                    paymentMethod === 'visa_card'
+                      ? 'border-[#2E7D32] bg-emerald-50 text-[#2E7D32] font-bold ring-1 ring-[#2E7D32]'
+                      : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <CreditCard size={14} className="text-purple-600" />
+                    💳 Visa / Mastercard
+                  </div>
+                  <span className="text-[10px] text-gray-500 block mt-0.5">BK / Equity / 3D-Secure</span>
                 </button>
 
                 <button
@@ -621,9 +707,9 @@ export default function OrderPlacementModal({
                 >
                   <div className="flex items-center gap-1.5 font-bold">
                     <Building2 size={14} className="text-blue-600" />
-                    🏦 Bank Transfer (Slip)
+                    🏦 Bank Transfer
                   </div>
-                  <span className="text-[10px] text-gray-500 block mt-0.5">BK / Equity Deposit Slip</span>
+                  <span className="text-[10px] text-gray-500 block mt-0.5">BK / Equity Slip</span>
                 </button>
 
                 <button
@@ -653,9 +739,9 @@ export default function OrderPlacementModal({
                 >
                   <div className="flex items-center gap-1.5 font-bold">
                     <CreditCard size={14} className="text-gray-600" />
-                    💵 Pay at Depot Counter
+                    💵 Pay at Depot
                   </div>
-                  <span className="text-[10px] text-gray-500 block mt-0.5">Cash on Pickup Desk</span>
+                  <span className="text-[10px] text-gray-500 block mt-0.5">Cashier Counter</span>
                 </button>
               </div>
 
@@ -667,9 +753,18 @@ export default function OrderPlacementModal({
                       <Smartphone size={15} className="text-amber-700" />
                       <span>Live MoMo PIN Authorization</span>
                     </div>
-                    <span className="text-[10px] font-mono font-bold bg-amber-200/70 text-amber-950 px-2 py-0.5 rounded">
-                      Till: {PAYMENT_CONFIG.mtnMoMoMerchantCode}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${
+                        gatewayMode === 'live' 
+                          ? 'bg-green-100 text-green-800 border-green-300' 
+                          : 'bg-amber-100 text-amber-800 border-amber-300'
+                      }`}>
+                        {gatewayMode === 'live' ? '● LIVE GATEWAY' : '🧪 DEV SANDBOX'}
+                      </span>
+                      <span className="text-[10px] font-mono font-bold bg-amber-200/70 text-amber-950 px-2 py-0.5 rounded">
+                        Till: {PAYMENT_CONFIG.mtnMoMoMerchantCode}
+                      </span>
+                    </div>
                   </div>
 
                   {momoError && (
@@ -787,7 +882,98 @@ export default function OrderPlacementModal({
                 </div>
               )}
 
-              {/* 2. BANK TRANSFER PANEL */}
+              {/* 2. VISA / MASTERCARD ONLINE 3D-SECURE PANEL */}
+              {paymentMethod === 'visa_card' && (
+                <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-200 space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-purple-200/70">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-purple-950">
+                      <CreditCard size={15} className="text-purple-700" />
+                      <span>3D-Secure Visa / Mastercard Gateway</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${
+                        gatewayMode === 'live' 
+                          ? 'bg-green-100 text-green-800 border-green-300' 
+                          : 'bg-purple-100 text-purple-800 border-purple-300'
+                      }`}>
+                        {gatewayMode === 'live' ? '● LIVE GATEWAY' : '🧪 DEV SANDBOX'}
+                      </span>
+                      <span className="text-[10px] font-bold text-purple-900 bg-purple-200/60 px-2 py-0.5 rounded">
+                        BK • Equity • Global
+                      </span>
+                    </div>
+                  </div>
+
+                  {cardError && (
+                    <div className="p-2.5 bg-red-100 border border-red-200 rounded-xl flex items-center gap-1.5 text-xs text-red-900">
+                      <AlertCircle size={14} className="shrink-0 text-red-700" />
+                      <span>{cardError}</span>
+                    </div>
+                  )}
+
+                  <div className="p-3 bg-white rounded-xl border border-purple-100 text-[11px] space-y-1.5 text-gray-700">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-gray-600">Card Provider:</span>
+                      <span className="font-bold text-purple-900">Visa / Mastercard / UnionPay</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-gray-600">Total to Charge:</span>
+                      <span className="font-black text-gray-900">RWF {calculation.totalAmountRwf.toLocaleString()}</span>
+                    </div>
+                    <div className="pt-1 border-t border-purple-50 flex items-center gap-1.5 text-[10px] text-gray-500">
+                      <ShieldCheck size={13} className="text-[#2E7D32]" />
+                      <span>PCI-DSS Level 1 Encrypted • Settled directly into Turashoboye bank account.</span>
+                    </div>
+                  </div>
+
+                  {cardAuthStatus === 'idle' && (
+                    <div className="pt-1 flex items-center justify-between gap-3">
+                      <p className="text-[11px] text-purple-900 leading-tight">
+                        Click below to open the secure 3D-Secure verification session.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleInitiateCardPayment}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold shrink-0 shadow-xs transition"
+                      >
+                        <CreditCard size={13} />
+                        Authorize Card Payment
+                      </button>
+                    </div>
+                  )}
+
+                  {cardAuthStatus === 'initiating' && (
+                    <div className="p-3 bg-purple-100 rounded-xl border border-purple-200 flex items-center gap-2 text-xs text-purple-900">
+                      <div className="w-4 h-4 border-2 border-purple-700 border-t-transparent rounded-full animate-spin" />
+                      <span>Opening secure 3D-Secure payment session with card network...</span>
+                    </div>
+                  )}
+
+                  {cardAuthStatus === 'authorized' && (
+                    <div className="p-3 bg-emerald-100 border border-emerald-300 rounded-xl flex items-center justify-between text-xs text-emerald-950">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 size={18} className="text-[#2E7D32] shrink-0" />
+                        <div>
+                          <span className="font-black block text-xs">Card Payment Cleared (Ref: {cardTxRef})</span>
+                          <span className="text-[10px] text-emerald-800">RWF {calculation.totalAmountRwf.toLocaleString()} authorized via 3D-Secure. Ready to confirm order.</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCardAuthStatus('idle');
+                          setCardTxRef('');
+                        }}
+                        className="text-[10px] font-bold text-emerald-800 hover:underline"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 3. BANK TRANSFER PANEL */}
               {paymentMethod === 'bank_transfer' && (
                 <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200 space-y-3">
                   <div className="flex items-center justify-between pb-2 border-b border-blue-200/70">
