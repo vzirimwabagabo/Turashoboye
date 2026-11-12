@@ -20,6 +20,7 @@ import {
   Settings,
   TrendingUp,
   ShoppingBag,
+  Wallet,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { UserRole } from "../../types/database";
@@ -62,6 +63,7 @@ const getNavItems = (role: UserRole) => [
   { to: "/production/formulas", label: "Feed Formulations", icon: Beaker, roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
   { to: "/production/traceability", label: "Batch Traceability", icon: Compass, roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
   { to: "/sales", label: "Sales & Orders", icon: ShoppingCart, roles: [UserRole.SALES_STAFF, UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
+  { to: "/sales/credit-ledger", label: "Co-op Credit & Layaway", icon: Wallet, roles: [UserRole.SALES_STAFF, UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
   { to: "/customers", label: "Customers", icon: Users, roles: [UserRole.SALES_STAFF, UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
   { to: "/compliance", label: "Compliance & RSB", icon: Shield, roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },
   { to: "/reports", label: "Reports & P&L", icon: BarChart2, roles: [UserRole.MANAGER, UserRole.OWNER, UserRole.SUPER_ADMIN] },

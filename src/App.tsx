@@ -28,6 +28,7 @@ import FormulasPage from './pages/production/FormulasPage';
 import TraceabilityPage from './pages/production/TraceabilityPage';
 import OrdersPage from './pages/sales/OrdersPage';
 import CustomersPage from './pages/sales/CustomersPage';
+import CreditLedgerPage from './pages/sales/CreditLedgerPage';
 import CompliancePage from './pages/compliance/CompliancePage';
 import ReportsPage from './pages/reports/ReportsPage';
 import SettingsPage from './pages/settings/SettingsPage';
@@ -106,6 +107,7 @@ function App() {
             <Route path="/production/formulas" element={<FormulasPage />} />
             <Route path="/production/traceability" element={<TraceabilityPage />} />
             <Route path="/sales" element={<OrdersPage />} />
+            <Route path="/sales/credit-ledger" element={<CreditLedgerPage />} />
             <Route path="/customers" element={<CustomersPage />} />
             <Route path="/compliance" element={<CompliancePage />} />
             <Route path="/reports" element={<ReportsPage />} />
