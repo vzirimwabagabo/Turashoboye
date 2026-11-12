@@ -15,7 +15,7 @@ import {
   Printer,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
-import { uploadMediaFile } from '../../lib/cloudinary';
+import { uploadMediaFile, getDocumentViewUrl } from '../../lib/cloudinary';
 import { PAYMENT_CONFIG } from '../../config/paymentConfig';
 
 export interface RegulatoryItem {
@@ -749,7 +749,7 @@ export default function CompliancePage() {
                       <span className="truncate">Certificate Attached</span>
                     </div>
                     <a
-                      href={item.documentUrl}
+                      href={getDocumentViewUrl(item.documentUrl)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-[#2E7D32] hover:bg-green-800 text-white font-bold text-xs shadow-xs transition shrink-0 cursor-pointer"
@@ -1007,7 +1007,7 @@ function ComplianceUploadModal({
                   Current Certificate Attached
                 </span>
                 <a
-                  href={record.documentUrl}
+                  href={getDocumentViewUrl(record.documentUrl)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-[#2E7D32] hover:underline font-bold text-xs"

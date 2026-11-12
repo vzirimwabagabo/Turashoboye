@@ -107,6 +107,20 @@ export function getOptimizedImageUrl(
 }
 
 /**
+ * Returns a browser-viewable URL for compliance documents.
+ * Cloudinary accounts restrict direct delivery of raw .pdf files by default (HTTP 401 Unauthorized),
+ * but rasterize PDFs into high-quality images. Converting the extension to .jpg enables immediate
+ * preview without getting blocked by Cloudinary's "Restricted media types" security policy.
+ */
+export function getDocumentViewUrl(url?: string): string {
+  if (!url) return '';
+  if (url.includes('res.cloudinary.com') && url.toLowerCase().endsWith('.pdf')) {
+    return url.replace(/\.pdf$/i, '.jpg');
+  }
+  return url;
+}
+
+/**
  * Upload a media file using signed upload or client preset.
  */
 export async function uploadMediaFile(
